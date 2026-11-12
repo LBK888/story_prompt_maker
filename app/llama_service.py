@@ -117,7 +117,9 @@ class LlamaServerManager:
             result = subprocess.run(
                 ["netstat", "-ano", "-p", "tcp"],
                 capture_output=True,
-                text=True,
+                # The TCP fields are ASCII, while Windows may localize the headers.
+                encoding="ascii",
+                errors="replace",
                 check=False,
                 creationflags=creationflags,
             )
