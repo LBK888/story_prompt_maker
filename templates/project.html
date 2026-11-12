@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}{{ project.name }} · Vid Auto Prompt{% endblock %}
+{% block content %}
+<div id="project-app" data-project-id="{{ project.id }}">
+  <section class="project-title">
+    <div>
+      <a class="back" href="/">← 所有專案</a>
+      <p class="eyebrow">{{ project.id }}</p>
+      <h1 id="project-name">{{ project.name }}</h1>
+    </div>
+    <div class="health-row">
+      <button class="ghost" id="rename-button">重新命名</button>
+      <button class="ghost" id="export-project" type="button">打包下載專案</button>
+      <button class="ghost" id="archive-button">封存</button>
+      <button class="ghost" id="settings-button">連線設定</button>
+      <span class="pill" id="llm-pill">LLM 未檢查</span>
+      <span class="pill" id="comfy-pill">ComfyUI 未檢查</span>
+    </div>
+  </section>
+
+  <dialog id="connection-dialog" class="panel dialog">
+    <form method="dialog"><button class="dialog-close">×</button></form>
+    <h2>連線設定</h2>
+    <section class="active-llm-card" id="active-llm-card" aria-live="polite">
+      <div class="active-llm-heading"><span id="active-llm-kind">LLM</span><a class="ghost small settings-link" href="/">切換模型</a></div>
+      <strong id="active-llm-provider">正在讀取目前設定…</strong>
+      <code id="active-llm-model"></code>
+      <span id="active-llm-endpoint" class="hint"></span>
+      <span id="active-llm-key" class="hint"></span>
+    </section>
+    <label>ComfyUI URL<input id="comfy-url" type="url"></label>
+    <label class="check"><input id="shared-gpu" type="checkbox"> 與 ComfyUI 共用 GPU</label>
+    <p class="hint" id="shared-gpu-hint">共用 GPU 時，送件前只會關閉本 app 啟動的 llama.cpp；不檢查或管理其他程序的 VRAM。若 ComfyUI OOM，錯誤會由 ComfyUI 回報。</p>
+    <div class="button-row"><button id="save-config" class="primary">儲存</button><button id="test-comfy" class="ghost">測試連線</button><button id="unload-llm" class="danger" type="button">中斷LLM釋放vram</button></div>
+    <p class="hint" id="unload-llm-hint">若 LLM 正在生成，手動釋放 VRAM 會立即中斷該次工作；下次使用 LLM 時會自動重新載入。</p>
+    <pre id="connection-result" class="mini-log"></pre>
+  </dialog>
+
+  <section class="workspace-grid">
+    <form id="story-form" class="panel setup-panel">
+      <div class="panel-heading"><div><p class="eyebrow">01 / STORY</p><h2>故事與全片設定</h2></div><span id="save-state" class="muted">已儲存</span></div>
+      <label>故事文字<textarea id="story" rows="11"></textarea></label>
+      <div class="form-grid four">
+        <label>最低時長（秒）<input id="minimum-duration" type="number" min="4" max="600"></label>
+        <label>分鏡長度（秒）<input id="segment-duration" type="number" min="4" max="25" value="15"></label>
+        <label>長寬比<select id="aspect-ratio"><option>16:9</option><option>9:16</option><option>1:1</option><option>4:3</option><option>3:4</option><option>21:9</option></select></label>
+        <label>像素<select id="target-megapixels"></select></label>
+        <label>擴寫程度<select id="expansion-mode"><option value="strict">Strict</option><option value="balanced">Balanced</option><option value="creative">Creative</option></select></label>
+      </div>
+      <div class="form-grid two">
+        <label>影片類型<select id="style-category">
+          <option value="live_action">真實感</option><option value="2d_animation">2D 動畫</option><option value="3d_animation">3D 動畫</option>
+          <option value="stop_motion">停格／紙藝</option><option value="live_handdrawn_mix">真實＋手繪</option>
+          <option value="live_3d_mix">真實＋3D</option><option value="custom">自訂</option>
+        </select></label>
+        <label>官方場景規則<select id="official-preset">
+          <option value="AUTO">AUTO</option><option value="none">無</option><option value="minimalist_product_ad">極簡產品廣告</option>
+          <option value="3d_animation">3D 動畫短片</option><option value="brand_promo">品牌宣傳</option><option value="music_video_typography">音樂 MV 動態字幕</option>
+          <option value="coop_game_intro">雙人合作遊戲開場</option><option value="paper_collage">紙拼貼</option>
+          <option value="papercraft_stop_motion">立體紙藝停格</option><option value="handdrawn_live_fusion">手繪實拍融合</option>
+        </select></label>
+      </div>
+      <label>風格補充<input id="style-notes" placeholder="例如：1990 年代台灣電影、低飽和、手持攝影"></label>
+      <div class="permission-row">
+        <div class="permission-control"><label class="check"><input id="create-dialogue" type="checkbox"> 創作對白</label><select id="dialogue-language" aria-label="對白語言"><option value="Chinese">中文</option><option value="English">英文</option></select></div>
+        <div class="permission-control"><label class="check"><input id="create-narration" type="checkbox"> 創作旁白</label><select id="narration-language" aria-label="旁白語言"><option value="Chinese">中文</option><option value="English">英文</option></select></div>
+      </div>
+      <div class="button-row"><button class="primary" type="submit">儲存設定</button></div>
+    </form>
+
+    <section class="panel asset-panel">
+      <div class="panel-heading"><div><p class="eyebrow">02 / REFERENCES</p><h2>參考影音圖檔</h2></div><button id="scan-assets" class="ghost small">重新掃描</button></div>
+      <label class="upload-zone" id="asset-drop-zone"><strong>拖曳圖片、影片或聲音檔到這裡，或點選上傳</strong><span>JPG / PNG / WebP · MP4 / MOV / MKV / WebM / AVI · WAV / MP3 / FLAC / M4A / AAC / OGG</span><input id="asset-upload" type="file" accept=".jpg,.jpeg,.png,.webp,.mp4,.mov,.mkv,.webm,.avi,.wav,.mp3,.flac,.m4a,.aac,.ogg" multiple></label>
+      <button id="choose-characters" class="ghost" type="button">選取內建角色</button>
+      <p class="hint">瀏覽大頭照、試聽語音，一次加入人物圖片與聲音。</p>
+      <div id="asset-list" class="asset-list"></div>
+      <div class="asset-blueprint-action"><div class="button-row"><button class="accent" type="button" id="blueprint-button">產生／重建t2v影片藍圖</button><button class="primary" type="button" id="blank-blueprint-button" {% if project.segments %}disabled{% endif %}>產生空白分鏡</button></div><p class="hint">上傳參考影音圖檔後，藍圖會依照使用者指定的角色與備註規劃；空白分鏡不會使用 LLM。</p></div>
+    </section>
+  </section>
+
+  <section class="section-head sticky-actions">
+    <div><p class="eyebrow">03 / REVIEW & GENERATE</p><h2>分鏡與 H3 prompts</h2></div>
+    <div class="action-panel"><div class="button-row">
+      <button id="prompts-all" class="accent">創作/重製所有prompts</button>
+      <button id="generate-all" class="video-action">依序生成所有影片</button>
+      <button id="merge-all" class="merge-action">合併 active takes</button>
+    </div><p id="video-actions-hint" class="hint"></p></div>
+  </section>
+  <div id="project-warning" class="warning" hidden></div>
+  <section id="segments" class="segments"></section>
+  <section id="finals" class="finals"></section>
+  <aside id="generation-queue" class="generation-queue" aria-live="polite" hidden>
+    <div class="generation-queue-head"><div><b>影片生成佇列</b><small>處理中以外的項目可按 × 取消並移除</small></div><span id="generation-queue-count">0</span></div>
+    <div id="generation-queue-list" class="generation-queue-list"></div>
+  </aside>
+</div>
+<dialog id="segment-image-dialog" class="panel dialog segment-image-dialog" aria-labelledby="segment-image-title">
+  <form method="dialog"><button class="dialog-close" aria-label="關閉">×</button></form>
+  <h2 id="segment-image-title">生成圖片</h2>
+  <p class="hint">可選最多 3 個參考圖片或影片；影片會取第一幀作為參考。</p>
+  <div id="segment-image-assets" class="segment-image-assets"></div>
+  <label>提示詞<textarea id="segment-image-prompt" rows="9" placeholder="先按「生成提示詞」，也可自行修改"></textarea></label>
+  <div class="button-row"><button id="segment-image-rewrite" class="ghost" type="button">生成提示詞</button><label class="segment-image-batch">Batch（張）<select id="segment-image-batch"><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label><button id="segment-image-generate" class="image-action" type="button">生成圖</button></div>
+  <p id="segment-image-status" class="hint" role="status"></p>
+  <div id="segment-image-results" class="segment-image-results"></div>
+</dialog>
+<dialog id="prompt-template-dialog" class="panel dialog prompt-template-dialog" aria-labelledby="prompt-template-title">
+  <form method="dialog"><button class="dialog-close" aria-label="關閉提示詞模板">×</button></form>
+  <h2 id="prompt-template-title">插入提示詞模板</h2>
+  <p id="prompt-template-status" class="hint" role="status"></p>
+  <div class="prompt-template-table-wrap"><table class="prompt-template-table"><thead><tr><th>名稱</th><th>類型</th><th>備註</th><th>提示詞</th><th></th></tr></thead><tbody id="prompt-template-body"></tbody></table></div>
+</dialog>
+<dialog id="asset-preview-dialog" class="panel dialog asset-preview-dialog" aria-labelledby="asset-preview-title">
+  <form method="dialog"><button class="dialog-close" aria-label="關閉素材預覽">×</button></form>
+  <h2 id="asset-preview-title">素材預覽</h2>
+  <div id="asset-preview-content"></div>
+</dialog>
+<dialog id="character-dialog" class="panel character-dialog" aria-labelledby="character-title">
+  <div class="dialog-heading"><div><p class="eyebrow">CHARACTER LIBRARY</p><h2 id="character-title">選取內建角色</h2></div><form method="dialog"><button class="dialog-close" aria-label="關閉角色選取器">×</button></form></div>
+  <div class="character-filters">
+    <label>搜尋角色<input id="character-search" type="search" placeholder="姓名、職業、服裝或介紹…"></label>
+    <label>分類<select id="character-category"><option value="">全部分類</option></select></label>
+    <label class="check"><input id="character-voice-only" type="checkbox">有語音</label>
+    <label class="check"><input id="character-selected-only" type="checkbox">只看已選</label>
+  </div>
+  <p id="character-status" class="hint" role="status"></p>
+  <div id="character-grid" class="character-grid"></div>
+  <div class="character-pagination"><button id="character-prev" class="ghost" type="button">上一頁</button><span id="character-page"></span><button id="character-next" class="ghost" type="button">下一頁</button></div>
+  <div class="dialog-footer"><p class="hint">角色以三視圖＋語音整體加入，保留介紹及台詞；每次最多 30 人。</p><button id="character-add" class="primary" type="button" disabled>加入所選角色（0）</button></div>
+</dialog>
+{% endblock %}
+{% block scripts %}
+<script>window.INITIAL_PROJECT = {{ project|tojson }}; window.RESOLUTION_OPTIONS = {{ resolution_options|tojson }};</script>
+<script src="/static/reference-mapping.js?v={{ version }}"></script>
+<script src="/static/project.js?v={{ version }}&build=033"></script>
+<script src="/static/characters.js?v={{ version }}&build=2"></script>
+{% endblock %}

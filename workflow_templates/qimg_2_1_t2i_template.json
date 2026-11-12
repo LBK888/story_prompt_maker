@@ -1,0 +1,129 @@
+{
+  "461": {
+    "inputs": {
+      "filename_prefix": "[[OUTPUT_PREFIX]]",
+      "format": "png",
+      "format.bit_depth": "8-bit",
+      "format.input_color_space": "sRGB",
+      "images": [
+        "459:457",
+        0
+      ]
+    },
+    "class_type": "SaveImageAdvanced",
+    "_meta": {
+      "title": "Save Image (Advanced)"
+    }
+  },
+  "459:452": {
+    "inputs": {
+      "prompt": "[[PROMPT]]",
+      "negative_prompt": "",
+      "resolution": 1024,
+      "clip": [
+        "459:453",
+        0
+      ]
+    },
+    "class_type": "TextEncodeQwenImage21",
+    "_meta": {
+      "title": "Text Encode Qwen Image 2.1"
+    }
+  },
+  "459:453": {
+    "inputs": {
+      "clip_name": "qwen3vl_8b_int8_convrot.safetensors",
+      "type": "qwen_image",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load CLIP"
+    }
+  },
+  "459:454": {
+    "inputs": {
+      "vae_name": "qwen_image_2.1_vae_bf16.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "459:456": {
+    "inputs": {
+      "width": "[[WIDTH]]",
+      "height": "[[HEIGHT]]",
+      "batch_size": 2
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "Empty Latent Image"
+    }
+  },
+  "459:457": {
+    "inputs": {
+      "samples": [
+        "459:458",
+        0
+      ],
+      "vae": [
+        "459:454",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "459:458": {
+    "inputs": {
+      "seed": "[[SEED]]",
+      "steps": 25,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "bong_tangent",
+      "denoise": 1,
+      "model": [
+        "459:472",
+        0
+      ],
+      "positive": [
+        "459:452",
+        0
+      ],
+      "negative": [
+        "459:452",
+        1
+      ],
+      "latent_image": [
+        "459:456",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "459:470": {
+    "inputs": {
+      "clip_name": "EVA02_CLIP_L_336_psz14_s6B.pt",
+      "type": "qwen_image"
+    },
+    "class_type": "CLIPLoaderGGUF",
+    "_meta": {
+      "title": "CLIPLoader (GGUF)"
+    }
+  },
+  "459:472": {
+    "inputs": {
+      "unet_name": "qwen-image-2.1-Q6_K.gguf"
+    },
+    "class_type": "UnetLoaderGGUF",
+    "_meta": {
+      "title": "Unet Loader (GGUF)"
+    }
+  }
+}

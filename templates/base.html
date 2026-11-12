@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Vid Auto Prompt{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css?v={{ version }}&build=026">
+  <link rel="stylesheet" href="/static/characters.css?v={{ version }}&build=1">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">VID / AUTO PROMPT</a>
+    <div class="topbar-actions">
+      <span class="version">v{{ version }}</span>
+      {% block topbar_actions %}{% endblock %}
+    </div>
+  </header>
+  <main class="shell">{% block content %}{% endblock %}</main>
+  <div id="toast" class="toast" hidden></div>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

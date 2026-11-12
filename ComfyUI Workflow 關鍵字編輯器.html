@@ -1,0 +1,581 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ComfyUI Workflow 關鍵字編輯器</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #121311;
+      --surface: #191a17;
+      --surface-2: #20211d;
+      --surface-3: #292a25;
+      --line: #34362f;
+      --line-strong: #4a4c42;
+      --text: #f1efe7;
+      --muted: #a5a69b;
+      --faint: #73756d;
+      --amber: #e2a83b;
+      --amber-soft: #332a18;
+      --mint: #65c5a6;
+      --mint-soft: #183029;
+      --red: #ef7c72;
+      --red-soft: #351d1b;
+      --blue: #87aee8;
+      --shadow: 0 18px 55px rgba(0,0,0,.28);
+      --radius: 9px;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      --sans: "Noto Sans TC", "Microsoft JhengHei UI", "PingFang TC", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 18% -8%, rgba(226,168,59,.08), transparent 31rem),
+        var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+    }
+    button, input, select, textarea { font: inherit; }
+    button, select, input { color: inherit; }
+    button { cursor: pointer; }
+    svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+    .app { height: 100%; display: grid; grid-template-rows: 54px 1fr 30px; }
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(25,26,23,.9);
+      backdrop-filter: blur(18px);
+      z-index: 5;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; min-width: 242px; }
+    .brand-mark { width: 27px; height: 27px; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 7px; color: var(--amber); background: var(--surface-2); }
+    .brand-mark svg { width: 16px; height: 16px; }
+    .brand-copy { line-height: 1.08; }
+    .brand-copy strong { display: block; font-size: 13px; letter-spacing: .02em; }
+    .brand-copy span { color: var(--faint); font: 10px/1 var(--mono); text-transform: uppercase; letter-spacing: .11em; }
+    .file-pill { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 7px 10px; border: 1px solid var(--line); border-radius: 7px; color: var(--muted); background: var(--surface); }
+    .file-pill span { max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-pill .dirty { width: 6px; height: 6px; border-radius: 99px; background: var(--amber); opacity: 0; }
+    .file-pill .dirty.on { opacity: 1; }
+    .spacer { flex: 1; }
+    .toolbar-group { display: flex; align-items: center; gap: 6px; }
+    .icon-btn, .text-btn {
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--surface-2);
+      transition: border-color .15s ease, background .15s ease, transform .15s ease;
+    }
+    .icon-btn { width: 34px; display: grid; place-items: center; padding: 0; color: var(--muted); }
+    .text-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 12px; font-weight: 650; }
+    .icon-btn:hover, .text-btn:hover { border-color: var(--line-strong); background: var(--surface-3); }
+    .icon-btn:active, .text-btn:active { transform: translateY(1px); }
+    .text-btn.primary { border-color: #665022; color: #17130b; background: var(--amber); }
+    .text-btn.primary:hover { background: #edb54e; }
+    .text-btn.ghost { background: transparent; color: var(--muted); }
+
+    .workspace { min-height: 0; display: grid; grid-template-columns: 300px minmax(380px, 1fr) 330px; }
+    .panel { min-width: 0; min-height: 0; background: var(--surface); }
+    .panel + .panel { border-left: 1px solid var(--line); }
+    .panel-head { height: 48px; display: flex; align-items: center; gap: 8px; padding: 0 13px; border-bottom: 1px solid var(--line); }
+    .panel-head h2 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .085em; }
+    .count { min-width: 22px; padding: 2px 6px; border-radius: 99px; color: var(--amber); background: var(--amber-soft); font: 11px/1.45 var(--mono); text-align: center; }
+
+    .left { display: grid; grid-template-rows: 48px auto 1fr; }
+    .filters { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+    .search-box { position: relative; }
+    .search-box svg { position: absolute; left: 9px; top: 9px; width: 14px; height: 14px; color: var(--faint); }
+    .search-box input, .filters select, .field-select, .replace-row input {
+      width: 100%; height: 32px; border: 1px solid var(--line); border-radius: 6px; outline: 0; background: var(--bg); color: var(--text);
+    }
+    .search-box input { padding: 0 9px 0 30px; }
+    .filters select { width: 84px; padding: 0 7px; color: var(--muted); }
+    input:focus, select:focus, textarea:focus { border-color: #8b6a2c !important; box-shadow: 0 0 0 3px rgba(226,168,59,.09); }
+    .candidate-list { overflow: auto; padding: 8px; }
+    .candidate {
+      width: 100%; display: grid; grid-template-columns: 8px 1fr auto; gap: 9px; align-items: start; padding: 11px 9px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: inherit; text-align: left;
+    }
+    .candidate:hover { background: var(--surface-2); }
+    .candidate.active { border-color: #675329; background: var(--amber-soft); }
+    .signal { width: 6px; height: 6px; margin-top: 6px; border-radius: 99px; background: var(--faint); box-shadow: 0 0 0 3px rgba(255,255,255,.025); }
+    .signal.high { background: var(--amber); }
+    .signal.medium { background: var(--blue); }
+    .signal.unknown { background: var(--faint); }
+    .candidate-main { min-width: 0; }
+    .candidate-main strong { display: block; margin-bottom: 3px; font: 600 12px/1.35 var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .candidate-main small { display: block; color: var(--faint); font: 11px/1.4 var(--sans); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .token-chip { margin-top: 1px; padding: 3px 5px; border: 1px solid #4c4026; border-radius: 4px; color: var(--amber); background: rgba(0,0,0,.12); font: 10px/1.2 var(--mono); }
+    .empty { padding: 34px 22px; color: var(--faint); text-align: center; line-height: 1.7; }
+
+    .center { display: grid; grid-template-rows: 48px auto 1fr; }
+    .editor-tools { display: flex; align-items: center; gap: 7px; margin-left: auto; }
+    .segmented { display: flex; padding: 2px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
+    .segmented button { height: 25px; padding: 0 9px; border: 0; border-radius: 4px; color: var(--faint); background: transparent; font-size: 11px; }
+    .segmented button.active { color: var(--text); background: var(--surface-3); }
+    .findbar { display: none; grid-template-columns: minmax(110px,1fr) minmax(110px,1fr) auto auto auto auto; gap: 7px; padding: 8px 10px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+    .findbar.open { display: grid; }
+    .findbar input { height: 30px; min-width: 0; padding: 0 9px; border: 1px solid var(--line); border-radius: 5px; outline: 0; background: var(--bg); }
+    .mini-btn { height: 30px; padding: 0 9px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); color: var(--muted); }
+    .editor-shell { min-height: 0; position: relative; display: grid; grid-template-columns: 52px 1fr; background: #11120f; }
+    .line-numbers { overflow: hidden; padding: 14px 10px 14px 0; border-right: 1px solid var(--line); color: #5f6259; background: #151613; font: 12.5px/1.62 var(--mono); text-align: right; white-space: pre; user-select: none; }
+    .code-layer { min-width: 0; min-height: 0; position: relative; overflow: hidden; }
+    #highlight, #editor { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 14px 18px; border: 0; font: 12.5px/1.62 var(--mono); tab-size: 2; white-space: pre; }
+    #highlight { min-width: max-content; min-height: max-content; color: #d7d7cf; background: transparent; pointer-events: none; transform-origin: 0 0; }
+    #editor { resize: none; outline: 0; overflow: auto; color: transparent; -webkit-text-fill-color: transparent; background: transparent; caret-color: var(--amber); }
+    #editor::selection { background: rgba(226,168,59,.28); }
+    .syn-key { color: #8fc7be; }
+    .syn-string { color: #c8d6a5; }
+    .syn-number { color: #e8ad6b; }
+    .syn-bool, .syn-null { color: #bb9cdf; }
+    .syn-token { display: inline-block; margin: -1px 0; padding: 1px 3px; border: 1px solid rgba(101,197,166,.65); border-radius: 3px; color: #b9f1df; background: rgba(39,118,93,.42); box-shadow: 0 0 0 1px rgba(101,197,166,.08); }
+    .find-option { height: 30px; display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 11px; white-space: nowrap; }
+    .find-option input { width: 14px; height: 14px; accent-color: var(--amber); }
+    .tree-view { display: none; min-height: 0; overflow: auto; padding: 14px 18px 40px; background: #11120f; font: 12px/1.65 var(--mono); }
+    .tree-view.active { display: block; }
+    .center.tree-mode .editor-shell { display: none; }
+    .tree-node { margin-left: 18px; }
+    .tree-node > summary { cursor: pointer; color: var(--muted); }
+    .tree-key { color: #8fc7be; }
+    .tree-value { color: #c8d6a5; }
+    .tree-value.number { color: #e8ad6b; }
+    .tree-value.token { padding: 1px 4px; border-radius: 3px; color: #b9f1df; background: rgba(39,118,93,.42); }
+
+    .right { display: grid; grid-template-rows: 48px minmax(0, 1fr) auto; }
+    .inspector { overflow: auto; padding: 14px; }
+    .note-panel { padding: 12px 14px 14px; border-top: 1px solid var(--line); background: var(--surface-2); }
+    .note-panel label { display: block; margin-bottom: 7px; font-size: 12px; font-weight: 650; }
+    .note-panel textarea { width: 100%; height: 100px; padding: 9px; resize: vertical; border: 1px solid var(--line); border-radius: 6px; outline: 0; background: var(--bg); color: var(--text); font: 12px/1.5 var(--sans); }
+    .note-panel p { margin: 7px 0 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
+    .note-actions { display: flex; gap: 7px; margin-top: 8px; }
+    .note-actions .mini-btn { flex: 1; }
+    .eyebrow { margin: 0 0 7px; color: var(--faint); font: 10px/1.2 var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+    .field-title { margin: 0 0 5px; font: 650 16px/1.35 var(--mono); overflow-wrap: anywhere; }
+    .field-path { margin: 0 0 17px; color: var(--muted); font: 11px/1.5 var(--mono); overflow-wrap: anywhere; }
+    .preview { padding: 11px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); }
+    .preview-label { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 7px; color: var(--faint); font-size: 11px; }
+    .preview-value { max-height: 82px; overflow: hidden; color: #d9d7ce; font: 11px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+    .form-group { margin-top: 15px; }
+    .form-group label { display: block; margin-bottom: 7px; color: var(--muted); font-size: 11px; }
+    .field-select { height: 38px; padding: 0 10px; font: 12px var(--mono); }
+    .recommendation { display: flex; gap: 9px; margin-top: 11px; padding: 10px; border-radius: 7px; color: #d9c99e; background: var(--amber-soft); font-size: 11px; line-height: 1.55; }
+    .recommendation svg { flex: 0 0 auto; width: 15px; height: 15px; margin-top: 1px; color: var(--amber); }
+    .apply-btn { width: 100%; height: 40px; margin-top: 14px; border: 1px solid #715821; border-radius: 7px; background: var(--amber); color: #17130b; font-weight: 750; }
+    .apply-btn:disabled { cursor: not-allowed; border-color: var(--line); background: var(--surface-3); color: var(--faint); }
+    .divider { height: 1px; margin: 18px 0; background: var(--line); }
+    .token-summary { display: grid; gap: 7px; }
+    .token-row { display: flex; align-items: center; gap: 8px; padding: 8px 9px; border: 1px solid var(--line); border-radius: 6px; }
+    .token-row code { min-width: 0; color: var(--mint); font: 10px var(--mono); overflow: hidden; text-overflow: ellipsis; }
+    .token-row span { margin-left: auto; color: var(--faint); font-size: 10px; white-space: nowrap; }
+    .token-row.used { border-color: #315d4f; background: var(--mint-soft); }
+    .token-row.available code { color: var(--muted); }
+    .validation-list { display: grid; gap: 7px; }
+    .validation-item { display: flex; gap: 8px; padding: 9px; border: 1px solid var(--line); border-radius: 6px; color: var(--muted); font-size: 11px; line-height: 1.45; }
+    .validation-item.error { border-color: #62332f; color: #efb0aa; background: var(--red-soft); }
+    .validation-item.warning { border-color: #5b4925; color: #ddc183; background: var(--amber-soft); }
+    .color-editor { display: grid; grid-template-columns: 42px 1fr; gap: 8px; margin-top: 10px; }
+    .color-editor input[type="color"] { width: 42px; height: 38px; padding: 3px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
+    .color-editor input[type="text"] { min-width: 0; height: 38px; padding: 0 9px; border: 1px solid var(--line); border-radius: 6px; outline: 0; background: var(--bg); color: var(--text); font: 12px var(--mono); }
+
+    body[data-theme="light"] { color-scheme: light; --bg:#f1f0ea; --surface:#faf9f4; --surface-2:#efeee8; --surface-3:#e5e4dd; --line:#d2d0c7; --line-strong:#b8b5aa; --text:#25261f; --muted:#66675e; --faint:#8a8b82; --amber-soft:#f4e9ce; --mint-soft:#dceee7; --red-soft:#f5dfdc; }
+    body[data-theme="light"] .editor-shell, body[data-theme="light"] .tree-view { background:#fbfaf6; }
+    body[data-theme="light"] .line-numbers, body[data-theme="light"] .statusbar { background:#e9e8e1; }
+    body[data-theme="light"] #highlight { color:#35362f; }
+    body[data-theme="light"] .syn-key, body[data-theme="light"] .tree-key { color:#16736a; }
+    body[data-theme="light"] .syn-string, body[data-theme="light"] .tree-value { color:#5d711c; }
+    body[data-theme="light"] .syn-number, body[data-theme="light"] .tree-value.number { color:#a45d12; }
+    body[data-theme="contrast"] { --bg:#000; --surface:#080808; --surface-2:#111; --surface-3:#1b1b1b; --line:#4b4b4b; --line-strong:#777; --text:#fff; --muted:#ddd; --faint:#aaa; --amber:#ffd447; --mint:#62f6c2; }
+
+    .statusbar { display: flex; align-items: center; gap: 15px; padding: 0 12px; border-top: 1px solid var(--line); color: var(--faint); background: #151613; font: 10px/1 var(--mono); }
+    .status-item { display: flex; align-items: center; gap: 6px; }
+    .status-dot { width: 6px; height: 6px; border-radius: 99px; background: var(--mint); }
+    .status-dot.error { background: var(--red); }
+    .status-dot.warning { background: var(--amber); }
+    .status-spacer { flex: 1; }
+    .drop-overlay { position: fixed; inset: 10px; z-index: 20; display: none; place-items: center; border: 1px dashed var(--amber); border-radius: 12px; background: rgba(18,19,17,.93); backdrop-filter: blur(12px); }
+    .drop-overlay.on { display: grid; }
+    .drop-card { text-align: center; }
+    .drop-card svg { width: 36px; height: 36px; margin-bottom: 12px; color: var(--amber); }
+    .drop-card strong { display: block; margin-bottom: 6px; font-size: 18px; }
+    .drop-card span { color: var(--muted); }
+    .toast { position: fixed; left: 50%; bottom: 46px; z-index: 30; max-width: min(430px, calc(100vw - 32px)); padding: 10px 14px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface-3); box-shadow: var(--shadow); transform: translate(-50%, 15px); opacity: 0; pointer-events: none; transition: .2s ease; }
+    .toast.show { transform: translate(-50%, 0); opacity: 1; }
+
+    @media (max-width: 1050px) {
+      .workspace { grid-template-columns: 250px minmax(360px, 1fr); grid-template-rows: minmax(0, 1fr) 450px; }
+      .right { display: grid; grid-column: 1 / -1; border-left: 0 !important; border-top: 1px solid var(--line); }
+      .brand { min-width: auto; }
+      .brand-copy span { display: none; }
+    }
+    @media (max-width: 720px) {
+      body { overflow: auto; }
+      .app { min-height: 100%; height: auto; grid-template-rows: auto auto 30px; }
+      .topbar { min-height: 54px; flex-wrap: wrap; padding: 9px 10px; }
+      .file-pill { order: 3; width: 100%; }
+      .workspace { min-height: 1330px; grid-template-columns: 1fr; grid-template-rows: 310px 560px 460px; }
+      .left, .center, .right { grid-column: 1; }
+      .right { grid-row: 3; }
+      .panel + .panel { border-left: 0; border-top: 1px solid var(--line); }
+      .findbar { grid-template-columns: 1fr 1fr auto auto; }
+      .text-btn span { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 3 4 7v10l4 4M16 3l4 4v10l-4 4M9.5 8.5h5M9.5 12h5M9.5 15.5h3"/></svg></div>
+        <div class="brand-copy"><strong>Workflow Token Editor</strong><span>ComfyUI API JSON</span></div>
+      </div>
+      <div class="file-pill" title="目前檔案"><span class="dirty" id="dirtyDot"></span><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg><span id="fileName">minimaxH3_8step.json</span></div>
+      <div class="spacer"></div>
+      <div class="toolbar-group">
+        <button class="icon-btn" id="undoBtn" title="復原 (Ctrl+Z)" aria-label="復原"><svg viewBox="0 0 24 24"><path d="m9 7-5 5 5 5"/><path d="M4 12h9a6 6 0 0 1 6 6"/></svg></button>
+        <button class="icon-btn" id="redoBtn" title="重做 (Ctrl+Y)" aria-label="重做"><svg viewBox="0 0 24 24"><path d="m15 7 5 5-5 5"/><path d="M20 12h-9a6 6 0 0 0-6 6"/></svg></button>
+        <button class="icon-btn" id="findToggle" title="搜尋與取代 (Ctrl+F)" aria-label="搜尋與取代"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></button>
+        <button class="icon-btn" id="formatBtn" title="格式化 JSON" aria-label="格式化 JSON"><svg viewBox="0 0 24 24"><path d="M4 7h16M7 12h10M10 17h4"/></svg></button>
+        <button class="icon-btn" id="themeBtn" title="切換深色／淺色／高對比" aria-label="切換色彩主題"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 0 0 16z"/></svg></button>
+        <button class="icon-btn" id="copyBtn" title="複製 JSON" aria-label="複製 JSON"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button>
+        <button class="text-btn ghost" id="openBtn"><svg viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v10H3z"/><path d="M3 7V5h7l2 2"/></svg><span>開啟 JSON</span></button>
+        <button class="text-btn primary" id="downloadBtn"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg><span>下載</span></button>
+      </div>
+      <input id="fileInput" type="file" accept=".json,application/json" hidden>
+      <input id="noteFileInput" type="file" accept=".txt,text/plain" hidden>
+    </header>
+
+    <main class="workspace">
+      <section class="panel left">
+        <div class="panel-head"><h2>可替代欄位</h2><span class="count" id="candidateCount">0</span></div>
+        <div class="filters">
+          <div class="search-box"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="candidateSearch" placeholder="篩選欄位…"></div>
+          <select id="confidenceFilter" aria-label="欄位篩選"><option value="recommended" selected>建議</option><option value="all">全部</option><option value="unknown">未知對應</option></select>
+        </div>
+        <div class="candidate-list" id="candidateList"></div>
+      </section>
+
+      <section class="panel center">
+        <div class="panel-head">
+          <h2>JSON 原始碼</h2>
+          <div class="editor-tools">
+            <div class="segmented" aria-label="編輯器檢視"><button class="active" id="codeViewBtn">程式碼</button><button id="treeViewBtn">樹狀</button></div>
+          </div>
+        </div>
+        <div class="findbar" id="findbar">
+          <input id="findInput" placeholder="尋找字串">
+          <input id="replaceInput" placeholder="取代為">
+          <label class="find-option"><input type="checkbox" id="caseSensitive">大小寫</label>
+          <label class="find-option"><input type="checkbox" id="regexMode">Regex</label>
+          <button class="mini-btn" id="findNextBtn">下一個</button>
+          <button class="mini-btn" id="replaceAllBtn">全部取代</button>
+        </div>
+        <div class="editor-shell">
+          <div class="line-numbers" id="lineNumbers">1</div>
+          <div class="code-layer">
+            <pre id="highlight" aria-hidden="true"></pre>
+            <textarea id="editor" spellcheck="false" aria-label="JSON 編輯器"></textarea>
+          </div>
+        </div>
+        <div class="tree-view" id="treeView" aria-label="JSON 樹狀檢視"></div>
+      </section>
+
+      <aside class="panel right">
+        <div class="panel-head"><h2>關鍵字替換</h2></div>
+        <div class="inspector" id="inspector"></div>
+        <div class="note-panel"><label for="noteInput">Template note（選填）</label><textarea id="noteInput" placeholder="例如：ComfyUI server IP、重要設定、作者、版本與使用說明。"></textarea><p>note 不會寫入 ComfyUI JSON。下載後請將同名的 .json 與 .note.txt 一起放進 workflow_templates 資料夾。</p><div class="note-actions"><button class="mini-btn" id="openNoteBtn" type="button">載入 note</button><button class="mini-btn" id="downloadNoteBtn" type="button">下載 note</button></div></div>
+      </aside>
+    </main>
+
+    <footer class="statusbar">
+      <span class="status-item"><span class="status-dot" id="statusDot"></span><span id="parseStatus">JSON 有效</span></span>
+      <span class="status-item" id="nodeStatus">18 nodes</span>
+      <span class="status-item" id="tokenStatus">0 tokens</span>
+      <span class="status-spacer"></span>
+      <span>UTF-8</span><span id="cursorStatus">Ln 1, Col 1</span>
+    </footer>
+  </div>
+
+  <div class="drop-overlay" id="dropOverlay"><div class="drop-card"><svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L8 8m4-4 4 4M4 15v5h16v-5"/></svg><strong>放開以載入 Workflow</strong><span>僅接受 ComfyUI API 格式 JSON</span></div></div>
+  <div class="toast" id="toast" role="status"></div>
+
+  <script>
+    const SAMPLE = {
+      "1":{"inputs":{"unet_name":"10Eros_Max_h3_fl2va_bf16_test4_pruned_B.safetensors","weight_dtype":"default"},"class_type":"UNETLoader","_meta":{"title":"Load Diffusion Model"}},
+      "6":{"inputs":{"task_type":"I2VA","audio_mode":"native","audio_denoise_strength":1,"first_frame":["37",0]},"class_type":"MiniMaxH3AudioConditioningT8","_meta":{"title":"MiniMax H3 Audio Conditioning (T8)"}},
+      "7":{"inputs":{"steps":8,"shift_video":12,"shift_audio":3,"sampler_name":"dual_clock_euler","scheduler":"native_flow"},"class_type":"MiniMaxH3DualClockSamplerT8","_meta":{"title":"STABLE 4 video / 4 audio"}},
+      "9":{"inputs":{"noise_seed":123456789},"class_type":"RandomNoise","_meta":{"title":"RandomNoise"}},
+      "12":{"inputs":{"frame_rate":24,"filename_prefix":"MiniMaxH3/stable_4v4a","format":"video/h264-mp4","crf":19},"class_type":"VHS_VideoCombine","_meta":{"title":"Video Combine"}},
+      "14":{"inputs":{"value":15},"class_type":"PrimitiveFloat","_meta":{"title":"Float (duration)"}},
+      "16":{"inputs":{"aspect_ratio":"16:9 (Widescreen)","megapixels":0.7,"multiple":32},"class_type":"ResolutionSelector","_meta":{"title":"Resolution Selector"}},
+      "36":{"inputs":{"prompt":"For the target video… integrated_multimodal_description…"},"class_type":"CR Prompt Text","_meta":{"title":"CR Prompt Text"}},
+      "37":{"inputs":{"image":"34e67512265da29076075030b62ba93ec304210a09171ff68e1f44894d15a36c.jpg"},"class_type":"LoadImage","_meta":{"title":"Load Image"}}
+    };
+
+    const EMBEDDED_WORKFLOW_B64 = "ewogICIxIjogewogICAgImlucHV0cyI6IHsKICAgICAgInVuZXRfbmFtZSI6ICIxMEVyb3NfTWF4X2gzX2ZsMnZhX2JmMTZfdGVzdDRfcHJ1bmVkX0Iuc2FmZXRlbnNvcnMiLAogICAgICAid2VpZ2h0X2R0eXBlIjogImRlZmF1bHQiCiAgICB9LAogICAgImNsYXNzX3R5cGUiOiAiVU5FVExvYWRlciIsCiAgICAiX21ldGEiOiB7CiAgICAgICJ0aXRsZSI6ICJMb2FkIERpZmZ1c2lvbiBNb2RlbCIKICAgIH0KICB9LAogICIyIjogewogICAgImlucHV0cyI6IHsKICAgICAgImxvcmFfbmFtZSI6ICJtaW5pbWF4X2gzX3R1cmJvXzRzdGVwXzEwRXJvc01heF90ZXN0NF9wcnVuZWRfY3VydmVwcm9qMTAyNV9leHBfdjAwMS1UOC5zYWZldGVuc29ycyIsCiAgICAgICJzdHJlbmd0aF9tb2RlbCI6IDEuMDAwMDAwMDAwMDAwMDAwMiwKICAgICAgIm1vZGVsIjogWwogICAgICAgICIxNyIsCiAgICAgICAgMAogICAgICBdCiAgICB9LAogICAgImNsYXNzX3R5cGUiOiAiTG9yYUxvYWRlckJ5cGFzc01vZGVsT25seSIsCiAgICAiX21ldGEiOiB7CiAgICAgICJ0aXRsZSI6ICJsb3JhIG9ubHkiCiAgICB9CiAgfSwKICAiMyI6IHsKICAgICJpbnB1dHMiOiB7CiAgICAgICJjbGlwX25hbWUiOiAicXdlbjN2bF8zMmJfbWluaW1heF9oM19udmZwNF9hd3Euc2FmZXRlbnNvcnMiLAogICAgICAidHlwZSI6ICJtaW5pbWF4IiwKICAgICAgImRldmljZSI6ICJkZWZhdWx0IgogICAgfSwKICAgICJjbGFzc190eXBlIjogIkNMSVBMb2FkZXIiLAogICAgIl9tZXRhIjogewogICAgICAidGl0bGUiOiAiTG9hZCBDTElQIgogICAgfQogIH0sCiAgIjQiOiB7CiAgICAiaW5wdXRzIjogewogICAgICAidmFlX25hbWUiOiAibWluaW1heF9oM192aWRlb192YWVfZnAxNi5zYWZldGVuc29ycyIKICAgIH0sCiAgICAiY2xhc3NfdHlwZSI6ICJWQUVMb2FkZXIiLAogICAgIl9tZXRhIjogewogICAgICAidGl0bGUiOiAiTG9hZCBWQUUiCiAgICB9CiAgfSwKICAiNSI6IHsKICAgICJpbnB1dHMiOiB7CiAgICAgICJ2YWVfbmFtZSI6ICJtaW5pbWF4X2gzX2F1ZGlvX3ZhZV9mcDMyLnNhZmV0ZW5zb3JzIgogICAgfSwKICAgICJjbGFzc190eXBlIjogIlZBRUxvYWRlciIsCiAgICAiX21ldGEiOiB7CiAgICAgICJ0aXRsZSI6ICJMb2FkIFZBRSIKICAgIH0KICB9LAogICI2IjogewogICAgImlucHV0cyI6IHsKICAgICAgInByb21wdCI6IFsKICAgICAgICAiMzYiLAogICAgICAgIDAKICAgICAgXSwKICAgICAgIndpZHRoIjogWwogICAgICAgICIxNiIsCiAgICAgICAgMAogICAgICBdLAogICAgICAiaGVpZ2h0IjogWwogICAgICAgICIxNiIsCiAgICAgICAgMQogICAgICBdLAogICAgICAibGVuZ3RoIjogWwogICAgICAgICIxNSIsCiAgICAgICAgMQogICAgICBdLAogICAgICAidGFza190eXBlIjogIkkyVkEiLAogICAgICAiYXVkaW9fbW9kZSI6ICJuYXRpdmUiLAogICAgICAiYXVkaW9fZGVub2lzZV9zdHJlbmd0aCI6IDEsCiAgICAgICJhZGRfc291cmNlX2FzX3JlZmVyZW5jZSI6IGZhbHNlLAogICAgICAicHJvbXB0X3ByaW1hcnlfYXVkaW9fb3JkaW5hbCI6IDAsCiAgICAgICJzdHJpY3RfcHJvbXB0X3RhZ3MiOiB0cnVlLAogICAgICAicmVmX2ltYWdlX3NpemUiOiAibWF0Y2giLAogICAgICAicmVmZXJlbmNlX3ZpZGVvX3BvbGljeSI6ICJvZmZpY2lhbF8yX3RvXzE1cyIsCiAgICAgICJjbGlwIjogWwogICAgICAgICIzIiwKICAgICAgICAwCiAgICAgIF0sCiAgICAgICJ2aWRlb192YWUiOiBbCiAgICAgICAgIjQiLAogICAgICAgIDAKICAgICAgXSwKICAgICAgImF1ZGlvX3ZhZSI6IFsKICAgICAgICAiNSIsCiAgICAgICAgMAogICAgICBdLAogICAgICAiZmlyc3RfZnJhbWUiOiBbCiAgICAgICAgIjM3IiwKICAgICAgICAwCiAgICAgIF0KICAgIH0sCiAgICAiY2xhc3NfdHlwZSI6ICJNaW5pTWF4SDNBdWRpb0NvbmRpdGlvbmluZ1Q4IiwKICAgICJfbWV0YSI6IHsKICAgICAgInRpdGxlIjogIk1pbmlNYXggSDMgQXVkaW8gQ29uZGl0aW9uaW5nIChUOCkiCiAgICB9CiAgfSwKICAiNyI6IHsKICAgICJpbnB1dHMiOiB7CiAgICAgICJzdGVwcyI6IDgsCiAgICAgICJzaGlmdF92aWRlbyI6IDEyLAogICAgICAic2hpZnRfYXVkaW8iOiAzLAogICAgICAic2FtcGxlcl9uYW1lIjogImR1YWxfY2xvY2tfZXVsZXIiLAogICAgICAic2NoZWR1bGVyIjogIm5hdGl2ZV9mbG93IiwKICAgICAgIm1vZGVsIjogWwogICAgICAgICIyIiwKICAgICAgICAwCiAgICAgIF0sCiAgICAgICJhdl9sYXRlbnQiOiBbCiAgICAgICAgIjYiLAogICAgICAgIDEKICAgICAgXQogICAgfSwKICAgICJjbGFzc190eXBlIjogIk1pbmlNYXhIM0R1YWxDbG9ja1NhbXBsZXJUOCIsCiAgICAiX21ldGEiOiB7CiAgICAgICJ0aXRsZSI6ICJTVEFCTEUgNCB2aWRlbyAvIDQgYXVkaW8iCiAgICB9CiAgfSwKICAiOCI6IHsKICAgICJpbnB1dHMiOiB7CiAgICAgICJtb2RlbCI6IFsKICAgICAgICAiNyIsCiAgICAgICAgMAogICAgICBdLAogICAgICAiY29uZGl0aW9uaW5nIjogWwogICAgICAgICI2IiwKICAgICAgICAwCiAgICAgIF0KICAgIH0sCiAgICAiY2xhc3NfdHlwZSI6ICJCYXNpY0d1aWRlciIsCiAgICAiX21ldGEiOiB7CiAgICAgICJ0aXRsZSI6ICJCYXNpYyBHdWlkZXIiCiAgICB9CiAgfSwKICAiOSI6IHsKICAgICJpbnB1dHMiOiB7CiAgICAgICJub2lzZV9zZWVkIjogMTIzNDU2Nzg5CiAgICB9LAogICAgImNsYXNzX3R5cGUiOiAiUmFuZG9tTm9pc2UiLAogICAgIl9tZXRhIjogewogICAgICAidGl0bGUiOiAiUmFuZG9tTm9pc2UiCiAgICB9CiAgfSwKICAiMTAiOiB7CiAgICAiaW5wdXRzIjogewogICAgICAibm9pc2UiOiBbCiAgICAgICAgIjkiLAogICAgICAgIDAKICAgICAgXSwKICAgICAgImd1aWRlciI6IFsKICAgICAgICAiOCIsCiAgICAgICAgMAogICAgICBdLAogICAgICAic2FtcGxlciI6IFsKICAgICAgICAiNyIsCiAgICAgICAgMQogICAgICBdLAogICAgICAic2lnbWFzIjogWwogICAgICAgICI3IiwKICAgICAgICAyCiAgICAgIF0sCiAgICAgICJsYXRlbnRfaW1hZ2UiOiBbCiAgICAgICAgIjYiLAogICAgICAgIDEKICAgICAgXQogICAgfSwKICAgICJjbGFzc190eXBlIjogIlNhbXBsZXJDdXN0b21BZHZhbmNlZCIsCiAgICAiX21ldGEiOiB7CiAgICAgICJ0aXRsZSI6ICJTYW1wbGVyQ3VzdG9tQWR2YW5jZWQiCiAgICB9CiAgfSwKICAiMTEiOiB7CiAgICAiaW5wdXRzIjogewogICAgICAiYXZfbGF0ZW50IjogWwogICAgICAgICIxMCIsCiAgICAgICAgMAogICAgICBdLAogICAgICAidmlkZW9fdmFlIjogWwogICAgICAgICI0IiwKICAgICAgICAwCiAgICAgIF0sCiAgICAgICJhdWRpb192YWUiOiBbCiAgICAgICAgIjUiLAogICAgICAgIDAKICAgICAgXQogICAgfSwKICAgICJjbGFzc190eXBlIjogIk1pbmlNYXhIM0FWRGVjb2RlVDgiLAogICAgIl9tZXRhIjogewogICAgICAidGl0bGUiOiAiTWluaU1heCBIMyBBViBEZWNvZGUgKFQ4KSIKICAgIH0KICB9LAogICIxMiI6IHsKICAgICJpbnB1dHMiOiB7CiAgICAgICJmcmFtZV9yYXRlIjogMjQsCiAgICAgICJsb29wX2NvdW50IjogMCwKICAgICAgImZpbGVuYW1lX3ByZWZpeCI6ICJNaW5pTWF4SDMvc3RhYmxlXzR2NGEiLAogICAgICAiZm9ybWF0IjogInZpZGVvL2gyNjQtbXA0IiwKICAgICAgInBpeF9mbXQiOiAieXV2NDIwcCIsCiAgICAgICJjcmYiOiAxOSwKICAgICAgInNhdmVfbWV0YWRhdGEiOiB0cnVlLAogICAgICAidHJpbV90b19hdWRpbyI6IGZhbHNlLAogICAgICAicGluZ3BvbmciOiBmYWxzZSwKICAgICAgInNhdmVfb3V0cHV0IjogdHJ1ZSwKICAgICAgImltYWdlcyI6IFsKICAgICAgICAiMTEiLAogICAgICAgIDAKICAgICAgXSwKICAgICAgImF1ZGlvIjogWwogICAgICAgICIxMSIsCiAgICAgICAgMQogICAgICBdCiAgICB9LAogICAgImNsYXNzX3R5cGUiOiAiVkhTX1ZpZGVvQ29tYmluZSIsCiAgICAiX21ldGEiOiB7CiAgICAgICJ0aXRsZSI6ICJWaWRlbyBDb21iaW5lIPCfjqXwn4Wl8J+Fl/CfhaIiCiAgICB9CiAgfSwKICAiMTQiOiB7CiAgICAiaW5wdXRzIjogewogICAgICAidmFsdWUiOiAxNQogICAgfSwKICAgICJjbGFzc190eXBlIjogIlByaW1pdGl2ZUZsb2F0IiwKICAgICJfbWV0YSI6IHsKICAgICAgInRpdGxlIjogIkZsb2F0IChkdXJhdGlvbikiCiAgICB9CiAgfSwKICAiMTUiOiB7CiAgICAiaW5wdXRzIjogewogICAgICAiZXhwcmVzc2lvbiI6ICJtYXgoNSwgcm91bmQoYSAqIDI0KSkgKyAoNSAtIChtYXgoNSwgcm91bmQoYSAqIDI0KSkgJSAxNykpICUgMTciLAogICAgICAidmFsdWVzLmEiOiBbCiAgICAgICAgIjE0IiwKICAgICAgICAwCiAgICAgIF0KICAgIH0sCiAgICAiY2xhc3NfdHlwZSI6ICJDb21meU1hdGhFeHByZXNzaW9uIiwKICAgICJfbWV0YSI6IHsKICAgICAgInRpdGxlIjogIk1hdGggRXhwcmVzc2lvbiIKICAgIH0KICB9LAogICIxNiI6IHsKICAgICJpbnB1dHMiOiB7CiAgICAgICJhc3BlY3RfcmF0aW8iOiAiMTY6OSAoV2lkZXNjcmVlbikiLAogICAgICAibWVnYXBpeGVscyI6IDAuNywKICAgICAgIm11bHRpcGxlIjogMzIKICAgIH0sCiAgICAiY2xhc3NfdHlwZSI6ICJSZXNvbHV0aW9uU2VsZWN0b3IiLAogICAgIl9tZXRhIjogewogICAgICAidGl0bGUiOiAiUmVzb2x1dGlvbiBTZWxlY3RvciIKICAgIH0KICB9LAogICIxNyI6IHsKICAgICJpbnB1dHMiOiB7CiAgICAgICJtb2RlbCI6IFsKICAgICAgICAiMSIsCiAgICAgICAgMAogICAgICBdCiAgICB9LAogICAgImNsYXNzX3R5cGUiOiAiTWluaU1heEgzTWVtb3J5RWZmaWNpZW50U2FnZUF0dGVudGlvblBhdGNoIiwKICAgICJfbWV0YSI6IHsKICAgICAgInRpdGxlIjogIk1pbmlNYXggSDMgTWVtIEVmZiBTYWdlIEF0dGVudGlvbiBQYXRjaCIKICAgIH0KICB9LAogICIzNiI6IHsKICAgICJpbnB1dHMiOiB7CiAgICAgICJwcm9tcHQiOiAiRm9yIHRoZSB0YXJnZXQgdmlkZW8sIGF0IDAuMDAgc2Vjb25kcyBpbnRvIHRoZSB0YXJnZXQgdmlkZW8sIDxQaWN0dXJlIDE+IChmcm9tIFtTaG90IDFdKSBpcyBmdWxseSByZWZlcmVuY2VkLlxuXG5pbnRlZ3JhdGVkX211bHRpbW9kYWxfZGVzY3JpcHRpb246XG5bU2hvdCAxXSDnlLvpnaLnsr7noa7otbflp4vkuo48U3ViamVjdCAxPu+8iOWbvuS4reWls+S6uu+8ieeahOato+mdouiDuOWDj++8mua3semdkuiJsue6r+WHgOiDjOaZr++8jOm7keiJsue7huWQiuW4pu+8jOajleiJsumVv+WPkeWeguiQveWPjOiCqe+8jOWGt+iwg+aflOWFieWLvuWLkuWHuumUgemqqOS4juiCqemDqOi9ruW7k+OAguWlueebtOinhumVnOWktO+8jOedq+avm+W+rumipO+8jOmaj+WQjue8k+e8k+aKrOi1t+WPs+iHgu+8jOaMh+WwluS7juiCqeWJjeWQkeWkluWIkuWHuuS4gOmBk+iInui5iOW8p+e6v+OAgumVnOWktOWQjOatpee8k+aFouWQjuaLie+8jOmAkOa4kOWRiOeOsOWlueeahOiFsOmDqOS4juiEmuS4i+WcsOmdouKAlOKAlOaMh+Wwlui9qOi/ueeahOato+S4i+aWue+8jOa3seiJsuWcsOadv+S4iua1rueOsOWHuuS4gOadoeaJgeW5s+eahOmTtuiTneiJsuWFiee6v++8jOWmguWQjOS6jOe7tOWiqOi/ueiIrOe0p+i0tOWcsOihqO+8jOmaj+WlueeahOiInuatpeawtOW5s+W7tuS8uOOAglxuXG5bU2hvdCAyXSBBdCAwMDowMy4wMDAsIOmVnOWktOWIh+iHs+S4reaZr++8jDxTdWJqZWN0IDE+5byA5aeL5peL6L2s6LW36Iie77yM5ZCK5bim6KGj5pGG6ZqP6L2s6Lqr6L275oms44CC5Zyw5p2/5LiK55qE5omB5bmz5YWJ55eV6aqk54S25LuO5Zyw6KGo5Yml56a777yM5Y2H56a75Zyw6Z2i77yM5YyW5Li65LiA5p2h5YW35pyJ56m66Ze057q15rex55qE6ZO26JOd6Imy5YWJ5bim77yM5Zyo5aW56Lqr5L2T5Zub5ZGo57yg57uV44CB57+75Y2377yM57Sn5a+G6L+96Liq5aW55omL6IeC5LiO6IKp6IaA55qE6L+Q5Yqo6L2o6L+544CC5YWJ5bim6L6557yY6ZSQ5Yip77yM5YaF6YOo6ZqQ57qm5Y+v6KeB57uG5a+G55qE5rWB5Yqo57q555CG77yM5Zyo5rex6Z2S6Imy6IOM5pmv5Lit5oqV5LiL5b6u5byx55qE5Ya36Imy5YWJ5pmV44CCXG5cbltTaG90IDNdIEF0IDAwOjA2LjUwMCwg6ZWc5aS06ZqP6Iie5q2l57yT5oWi5qiq56e744CC56m66Ze05YWJ5bim6L+b5LiA5q2l54mp6LSo5YyW77yM5LuO57qk57uG55qE5bim54q26Iao6IOA5Li65a+M5pyJ5L2T56ev5oSf55qE5Y2K6YCP5piO5YWJ6LSo77yM5aaC5ZCM5ray5oCB5Lid57u46Iis6KO55oyf552A5peg5pWw57uG56KO5YWJ57KS5a2Q77yM546v57uV5aW555qE6Lqv5bmy5LiO5omL6IeC5rWB5Yqo44CCPFN1YmplY3QgMT7oiJ7ouYjluYXluqbliqDlpKfvvIzplb/lj5Hpmo/ovazouqvnlKnliqjvvIzkvZPnp6/lhYnmtYHlnKjlpbnmr4/kuIDmrKHlsZXoh4Lml7bmianmlaPvvIzlnKjmr4/kuIDmrKHmlLbmiYvml7bogZrmi6LvvIzlpoLlkbzlkLjoiKzotbfkvI/jgIJcblxuW1Nob3QgNF0gQXQgMDA6MTAuMDAwLCDplZzlpLTlv6vpgJ/mi4nov5zoh7Plhajmma/jgII8U3ViamVjdCAxPuWcqOeUu+mdouS4reWkruWujOaIkOS4gOasoeWkp+W5heW6pueahOWPjOiHguWkluWxleWKqOS9nOKAlOKAlOaMh+WwluWFiea1geWcqOS8uOWxleiHs+aegemZkOeahOeerOmXtOmqpOeEtueIhuWPke+8jOS9k+enr+eJqei0qOWQkeaVtOS4quW3peS9nOWupOepuumXtOaJqeaVo++8mua3semdkuiJsuWimeWjgeS4iuiUk+W7tuW8gOWQjOW/g+WchueKtueahOWFiee6ue+8jOepuuawlOS4reWFhea7oeaCrOa1rue/u+i9rOeahOWFieeykuWtkOS4juS6pOe7h+eahOWFieW4pu+8jOWcsOmdouWPjeWwhOWHuueyvOeyvOazouWFieOAgueOr+Wig+WHoOS9lee7k+aehOS/neaMgeS4jeWPmO+8jOS9huaVtOS4quepuumXtOiiq+WlueeahOiInui5iOinhuinieivreazleW9u+W6leaUueWGmeOAguWlueWcqOWFiea9ruS4reWkrue7p+e7reiInuWKqO+8jOi6q+W9seiLpemakOiLpeeOsOOAglxuXG5bU2hvdCA1XSBBdCAwMDoxMy4wMDAsIOmVnOWktOe8k+e8k+aOqOi/keiHs+iDuOWDj+aehOWbvuOAgueOr+Wig+S4reeahOWFiea1geWmgumAgOa9ruiIrOWQkTxTdWJqZWN0IDE+55qE6Lqr5L2T5oCl6YCf5pS257yp77yM5aKZ5aOB5YWJ57q56buv5reh77yM56m65Lit57KS5a2Q5rGH6IGa77yM5omA5pyJ5YWJ57q/5pyA57uI5Yed57uT5Li65LiA6aKX5b6u5bCP55qE44CB57yT5oWi6ISJ5Yqo55qE6ZO26JOd6Imy5YWJ54K577yM6L276L276JC95Zyo5aW555qE6ZSB6aqo5Lit5aSu4oCU4oCU5q2j5piv6aaW5bin55S76Z2i5Lit6IKp6YOo6auY5YWJ55qE5L2N572u44CC5aW555qE6Iie5ae/5pS25pWb77yM5Y+M6IeC6Ieq54S25Z6C6JC977yM55uu5YWJ6YeN5paw5pyb5ZCR6ZWc5aS077yM5ae/5oCB5LiO6aaW5bin5p6E5Zu+57K+56Gu5ZG85bqU44CC5YWJ54K55Zyo6ZSB6aqo5LiK5b6u5b6u6Zeq54OB77yM5L2c5Li65q6L55WZ55WZ5a2Y6Iez55S76Z2i57uT5p2f44CCXG5cbm92ZXJhbGxfc291bmRzY2FwZTog5bel5L2c5a6k56m66Ze05a6J6Z2Z77yM5Y+v6Ze75aWz5Lq66Z6L5bqV5LiO5Zyw5p2/55qE6L275b6u5pGp5pOm5aOw44CB6ZW/5Y+R55Sp5Yqo55qE5b6u5byx56m65rCU5aOw5Y+K6KGj5paZ5pGp5oyy5aOw44CC5omB5bmz5YWJ55eV5Ye6546w5pe25Ly06ZqP5p6B6L2755qE6auY6aKR5Zeh6bij77yM5YWJ5bim5Y2H56a75Zyw6Z2i5pe25Zeh6bij6ZmN5L2O5bm25Lqn55Sf56m66Ze05Zue5ZON77yM54mp6LSo5YyW6Zi25q615Ye6546w57uG6IW755qE57KS5a2Q5rWB5Yqo5aOw5aaC5rKZ57KS5pGp5pOm77yM546v5aKD54iG5Y+R5pe25LiA6Zi15byA6ZiU55qE5L2O6aKR56m65rCU6ZyH6aKk5bit5Y235pW05Liq56m66Ze077yM5pyA57uI5pS257yp5pe25omA5pyJ5aOw5ZON6L+F6YCf6KGw5YeP77yM5LuF5L2Z5YWJ54K55b6u5byx55qE6ISJ5Yqo5aOw44CCXG5cbm5vbl9kaWVnZXRpY19tdXNpYzog5Ya36LCD55S15a2Q5rCb5Zu06Z+z5LmQ77yM5Lul57yT5oWi55qE5ZCI5oiQ5Zmo6ZW/6Z+z6ZO65bqV5byA5Zy677yM6ZqP6Iie6LmI5b6L5Yqo5Yqg5YWl57uG56KO55qE6ISJ5Yay6IqC5ouN5LiO546755KD6LSo5oSf55qE6auY6Z+z54K557yA44CC546v5aKD5bOw5YC85aSE6Z+z5LmQ5omp5bGV5Li65a695bm/55qE5aSa5bGC5ZKM5aOw57uH5L2T77yM5L2O6aKR5aKe5by644CC5pyA57uI6ZqP5YWJ57q/5pS257yp77yM6Z+z5LmQ6L+F6YCf5pS25p2f5Li65Y2V5Liq57qv5YeA6auY6Z+z55qE5b6u5byx5Zue5ZON77yM5LiO6ZSB6aqo5LiK55qE5YWJ54K55ZCM5q2l57yT5oWi5reh5Ye644CCIgogICAgfSwKICAgICJjbGFzc190eXBlIjogIkNSIFByb21wdCBUZXh0IiwKICAgICJfbWV0YSI6IHsKICAgICAgInRpdGxlIjogIuKame+4jyBDUiBQcm9tcHQgVGV4dCIKICAgIH0KICB9LAogICIzNyI6IHsKICAgICJpbnB1dHMiOiB7CiAgICAgICJpbWFnZSI6ICIzNGU2NzUxMjI2NWRhMjkwNzYwNzUwMzBiNjJiYTkzZWMzMDQyMTBhMDkxNzFmZjY4ZTFmNDQ4OTRkMTVhMzZjLmpwZyIKICAgIH0sCiAgICAiY2xhc3NfdHlwZSI6ICJMb2FkSW1hZ2UiLAogICAgIl9tZXRhIjogewogICAgICAidGl0bGUiOiAiTG9hZCBJbWFnZSIKICAgIH0KICB9Cn0=";
+    let startupSample = SAMPLE;
+    try {
+      const bytes = Uint8Array.from(atob(EMBEDDED_WORKFLOW_B64), c => c.charCodeAt(0));
+      startupSample = JSON.parse(new TextDecoder("utf-8").decode(bytes));
+    } catch (error) {
+      console.warn("Embedded workflow fallback is active.", error);
+    }
+
+    const FIXED_TOKENS = [
+      ["PROMPT","提示詞／口播描述"], ["SEED","隨機種子"], ["DURATION","片段秒數"], ["WIDTH","輸出寬度"], ["HEIGHT","輸出高度"],
+      ["ASPECT_RATIO","畫面比例"], ["FIRST_FRAME","起始影格"], ["LAST_FRAME","結束影格"], ["OUTPUT_PREFIX","輸出檔名前綴（必要）"],
+      ["TASK_TYPE","生成任務類型"], ["PROJECT_ID","專案識別碼"], ["SEGMENT_ID","片段識別碼"]
+    ];
+    const REF_TOKENS = [["IMG","圖片"],["AUD","語音"],["VID","影片"]].flatMap(([kind,label])=>Array.from({length:17},(_,i)=>[`REF_${kind}${i}`,`參考${label} ${i}`]));
+    FIXED_TOKENS.push(["Drive_AUD", "驅動語音（第一個語音或角色）"]);
+    const TOKENS = [...FIXED_TOKENS, ...REF_TOKENS];
+    const TOKEN_RE = /^\[\[([A-Za-z][A-Za-z0-9_]*)\]\]$/;
+    const state = { fileName: "minimaxH3_8step.json", doc: null, candidates: [], selectedId: null, dirty: false, jsonDirty: false, noteDirty: false, valid: true, searchAt: 0, history: [], future: [], lastSnapshot: "", view: "code", theme: "dark" };
+    const $ = (id) => document.getElementById(id);
+    const editor = $("editor");
+
+    function toast(message) {
+      const el = $("toast"); el.textContent = message; el.classList.add("show");
+      clearTimeout(toast.timer); toast.timer = setTimeout(() => el.classList.remove("show"), 1900);
+    }
+    function pretty(doc) { return JSON.stringify(doc, null, 2); }
+    function templateBaseName() { return state.fileName.replace(/\.json$/i, "").replace(/_template$/i, "") + "_template"; }
+    function syncDirty() { state.dirty=state.jsonDirty||state.noteDirty; $("dirtyDot").classList.toggle("on",state.dirty); }
+    function markDirty(kind) { state[kind+"Dirty"]=true; syncDirty(); }
+    function isLink(value) { return Array.isArray(value) && value.length === 2 && typeof value[0] === "string" && Number.isInteger(value[1]); }
+    function pathText(path) { return path.map((p, i) => i === 0 ? p : (/^\d+$/.test(String(p)) ? `[${p}]` : `.${p}`)).join(""); }
+    function getAtPath(root, path) { return path.reduce((value, key) => value?.[key], root); }
+    function setAtPath(root, path, value) { const parent = path.slice(0,-1).reduce((v,k) => v[k], root); parent[path.at(-1)] = value; }
+    function usedTokens(doc) {
+      const found = [];
+      (function walk(v) { if (typeof v === "string") { const m=v.match(TOKEN_RE); if(m) found.push(m[1]); } else if(Array.isArray(v)) v.forEach(walk); else if(v && typeof v === "object") Object.values(v).forEach(walk); })(doc);
+      return found;
+    }
+
+    function classify(key, value, node) {
+      const k = key.toLowerCase(); const title = String(node?._meta?.title || "").toLowerCase(); const cls = String(node?.class_type || "").toLowerCase();
+      if (TOKEN_RE.test(String(value))) return null;
+      if ((k === "prompt" || k.includes("positive_prompt")) && typeof value === "string") return { token:"PROMPT", confidence:"high", reason:"提示詞欄位會由片段內容動態提供" };
+      if (k === "seed" || k.endsWith("_seed") || k === "noise_seed") return { token:"SEED", confidence:"high", reason:"每次生成由主程式建立隨機種子" };
+      if (k === "duration" || k === "duration_seconds" || (k === "value" && title.includes("duration"))) return { token:"DURATION", confidence:"high", reason:"片段長度應跟隨主程式時間規劃" };
+      if (k === "filename_prefix" || k === "output_prefix") return { token:"OUTPUT_PREFIX", confidence:"high", reason:"主程式靠輸出前綴尋找生成影片，此關鍵字為必要項" };
+      if (k === "aspect_ratio") return { token:"ASPECT_RATIO", confidence:"high", reason:"畫面比例來自專案設定" };
+      if (k === "width") return { token:"WIDTH", confidence:"high", reason:"輸出寬度由畫面比例與像素設定計算" };
+      if (k === "height") return { token:"HEIGHT", confidence:"high", reason:"輸出高度由畫面比例與像素設定計算" };
+      if (k === "task_type") return { token:"TASK_TYPE", confidence:"high", reason:"任務類型會依片段素材自動決定" };
+      if (k === "project_id") return { token:"PROJECT_ID", confidence:"high", reason:"專案識別碼由主程式提供" };
+      if (k === "segment_id") return { token:"SEGMENT_ID", confidence:"high", reason:"片段識別碼由主程式提供" };
+      if (typeof value === "string" && (k === "audio" || /\.(wav|mp3|flac|m4a|aac|ogg)$/i.test(value))) return {token:title.includes("drive")?"Drive_AUD":"REF_AUD0", confidence:"high", reason:"參考語音或驅動語音檔案", options:["REF_AUD0","Drive_AUD"]};
+      if (typeof value === "string" && (k === "video" || /\.(mp4|mov|mkv|webm|avi)$/i.test(value))) return {token:"REF_VID0", confidence:"high", reason:"參考影片檔案"};
+      if ((k === "image" || k.endsWith("_image")) && typeof value === "string" && (cls.includes("loadimage") || /\.(png|jpe?g|webp|bmp)$/i.test(value))) return { token:"FIRST_FRAME", confidence:"high", reason:"載入圖片節點通常對應起始影格或參考圖片", options:["FIRST_FRAME","LAST_FRAME","REF_IMG1"] };
+      if (typeof value === "string" && /\.(png|jpe?g|webp|bmp)$/i.test(value)) return { token:"REF_IMG1", confidence:"medium", reason:"偵測到圖片檔名，請依節點用途確認", options:["REF_IMG1","FIRST_FRAME","LAST_FRAME"] };
+      return null;
+    }
+
+    function detectCandidates(doc) {
+      const items = [];
+      if (!doc || typeof doc !== "object" || Array.isArray(doc)) return items;
+      for (const [nodeId, node] of Object.entries(doc)) {
+        if (!node || typeof node !== "object" || !node.inputs) continue;
+        for (const [key, value] of Object.entries(node.inputs)) {
+          if (isLink(value) || (value !== null && typeof value === "object") || TOKEN_RE.test(String(value))) continue;
+          const hit = classify(key, value, node) || { token:null, confidence:"unknown", reason:"無法由欄位名稱與節點用途可靠判斷，請由使用者指定 TOKEN" };
+          items.push({ id:`${nodeId}:${key}`, nodeId, key, path:[nodeId,"inputs",key], value, nodeTitle:node._meta?.title || node.class_type || `Node ${nodeId}`, ...hit });
+        }
+      }
+      return items;
+    }
+
+    function renderCandidates() {
+      const list = $("candidateList");
+      const query = $("candidateSearch").value.trim().toLowerCase(); const filter = $("confidenceFilter").value;
+      const visible = state.candidates.filter(c => (filter === "all" || (filter === "recommended" && c.confidence !== "unknown") || (filter === "unknown" && c.confidence === "unknown")) && (!query || `${c.key} ${c.token || ''} ${c.nodeTitle}`.toLowerCase().includes(query)));
+      $("candidateCount").textContent = visible.length;
+      if (!visible.length) { list.innerHTML = `<div class="empty">沒有符合條件的候選欄位。<br>可直接編輯中央 JSON。</div>`; return; }
+      list.innerHTML = visible.map(c => `<button class="candidate ${c.id===state.selectedId?'active':''}" data-id="${escapeHtml(c.id)}"><span class="signal ${c.confidence}"></span><span class="candidate-main"><strong>${escapeHtml(c.key)}</strong><small>Node ${escapeHtml(c.nodeId)} · ${escapeHtml(c.nodeTitle)}</small></span><span class="token-chip">${c.token ? `[[${escapeHtml(c.token)}]]` : '未知對應'}</span></button>`).join("");
+      list.querySelectorAll(".candidate").forEach(el => el.addEventListener("click", () => selectCandidate(el.dataset.id)));
+    }
+
+    function renderInspector() {
+      const area = $("inspector"); const c = state.candidates.find(x => x.id === state.selectedId); const used = usedTokens(state.doc || {});
+      if (!c) {
+        area.innerHTML = `<p class="eyebrow">尚未選取欄位</p><h3 class="field-title">從左側選擇候選項目</h3><p class="field-path">預設只顯示建議欄位；切換「全部」或「未知對應」即可手動指定其他 scalar input。</p>${renderValidation()}<div class="divider"></div>${renderTokenSummary(used)}`;
+        return;
+      }
+      const position = findCandidatePosition(c); const color = normalizeHexColor(c.value);
+      area.innerHTML = `<p class="eyebrow">Node ${escapeHtml(c.nodeId)} · ${c.confidence === 'unknown' ? '未知對應' : '建議替換'} · Line ${position.line}</p><h3 class="field-title">${escapeHtml(c.key)}</h3><p class="field-path">${escapeHtml(pathText(c.path))}</p><div class="preview"><div class="preview-label"><span>目前值</span><span>${typeof c.value}</span></div><div class="preview-value">${escapeHtml(formatPreview(c.value))}</div></div>${color ? `<div class="form-group"><label>偵測到色彩值</label><div class="color-editor"><input type="color" id="colorPicker" value="${color}"><input type="text" id="colorText" value="${escapeHtml(String(c.value))}"></div></div>` : ''}<div class="form-group"><label for="tokenSelect">替換為主程式 TOKEN</label><select class="field-select" id="tokenSelect">${buildTokenOptions(c, used)}</select></div><div class="recommendation"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>${escapeHtml(c.reason)}。TOKEN 會成為完整 JSON value，保留主程式替換後的資料型別。</span></div><button class="apply-btn" id="applyBtn" ${c.token ? '' : 'disabled'}>${c.token ? `套用 [[${escapeHtml(c.token)}]]` : '請先選擇 TOKEN'}</button><div class="divider"></div>${renderTokenSummary(used)}`;
+      const select = $("tokenSelect"); const button = $("applyBtn");
+      select.addEventListener("change", () => { button.disabled = !select.value; button.textContent = select.value ? `套用 [[${select.value}]]` : '請先選擇 TOKEN'; });
+      button.addEventListener("click", () => select.value && applyToken(c, select.value));
+      if (color) {
+        const picker = $("colorPicker"), text = $("colorText");
+        picker.addEventListener("input", () => { text.value = picker.value; });
+        picker.addEventListener("change", () => applyRawValue(c, picker.value));
+        text.addEventListener("change", () => { const normalized = normalizeHexColor(text.value); if (!normalized) return toast("請輸入 #RGB 或 #RRGGBB 色彩值"); applyRawValue(c, text.value); });
+      }
+    }
+
+    function buildTokenOptions(c, used) {
+      const sorted = [...TOKENS].sort((a,b) => (a[0] === c.token ? -1 : b[0] === c.token ? 1 : 0));
+      return `<option value="">選擇 TOKEN…</option>${sorted.map(([token,label]) => `<option value="${token}" ${token===c.token?'selected':''}>[[${token}]] — ${escapeHtml(label)}${used.includes(token)?'（可重複使用）':''}</option>`).join('')}`;
+    }
+
+    function renderTokenSummary(used) {
+      const fixedRows = FIXED_TOKENS.map(([token,label]) => `<div class="token-row ${used.includes(token)?'used':'available'}"><code>[[${token}]]</code><span>${used.includes(token)?'已使用':escapeHtml(label)}</span></div>`).join('');
+      const refs = used.filter(t => /^REF_(IMG|AUD|VID)(0|[1-9][0-9]*)$/.test(t));
+      const refRows = refs.map(token => `<div class="token-row used"><code>[[${token}]]</code><span>已使用</span></div>`).join('');
+      return `<p class="eyebrow">所有可替換 TOKEN</p><div class="token-summary">${fixedRows}${refRows}<div class="token-row available"><code>[[REF_IMG#]] / [[REF_AUD#]] / [[REF_VID#]]</code><span>支援 0–∞；選單列出 0–16，可重複</span></div></div>`;
+    }
+
+    function renderValidation() {
+      const issues = validateTemplate(state.doc);
+      return `<div class="divider"></div><p class="eyebrow">模板驗證</p><div class="validation-list">${issues.length ? issues.map(x=>`<div class="validation-item ${x.level}">${escapeHtml(x.message)}</div>`).join('') : `<div class="validation-item">JSON 與 TOKEN 規則均通過</div>`}</div>`;
+    }
+
+    function normalizeHexColor(value) {
+      if (typeof value !== "string") return null;
+      if (/^#[0-9a-f]{6}$/i.test(value)) return value.toLowerCase();
+      if (/^#[0-9a-f]{3}$/i.test(value)) return `#${value.slice(1).split('').map(c=>c+c).join('')}`.toLowerCase();
+      return null;
+    }
+    function escapeHtml(value) { return String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+    function formatPreview(value) { const text = typeof value === "string" ? value : JSON.stringify(value); return text.length > 220 ? text.slice(0,217)+"…" : text; }
+
+    function selectCandidate(id) { state.selectedId = id; renderCandidates(); renderInspector(); locateCandidate(state.candidates.find(c=>c.id===id)); }
+    function findCandidatePosition(c) {
+      const nodeNeedle = `\n  "${c.nodeId}": {`; const nodeStart = Math.max(0, editor.value.indexOf(nodeNeedle));
+      const keyNeedle = `"${c.key}"`; const keyStart = editor.value.indexOf(keyNeedle, nodeStart);
+      const valueNeedle = JSON.stringify(c.value); const valueStart = keyStart >= 0 ? editor.value.indexOf(valueNeedle, keyStart + keyNeedle.length) : -1;
+      const start = valueStart >= 0 ? valueStart : Math.max(0, keyStart); const length = valueStart >= 0 ? valueNeedle.length : keyNeedle.length;
+      return { start, length, line: editor.value.slice(0,start).split("\n").length };
+    }
+    function locateCandidate(c) {
+      if (!c) return; switchView("code"); const pos = findCandidatePosition(c); const lineHeight = parseFloat(getComputedStyle(editor).lineHeight) || 20.25;
+      editor.focus(); editor.setSelectionRange(pos.start, pos.start + pos.length); editor.scrollTop = Math.max(0, (pos.line - 5) * lineHeight); syncScroll(); updateCursor(); toast(`已跳到第 ${pos.line} 行`);
+    }
+    function applyToken(c, token) {
+      if (!state.valid) return toast("請先修正 JSON 語法");
+      remember(editor.value); setAtPath(state.doc, c.path, `[[${token}]]`); editor.value = pretty(state.doc); state.lastSnapshot = editor.value; markDirty("json"); state.selectedId = null; refreshFromDoc(); syncEditorChrome(); renderTree(); toast(`已將 ${c.key} 替換為 [[${token}]]`);
+    }
+
+    function applyRawValue(c, value) {
+      if (!state.valid) return toast("請先修正 JSON 語法");
+      remember(editor.value); setAtPath(state.doc, c.path, value); editor.value = pretty(state.doc); state.lastSnapshot = editor.value; markDirty("json"); refreshFromDoc(); syncEditorChrome(); renderTree(); toast(`${c.key} 已更新為 ${value}`);
+    }
+
+    function remember(text) { if (!state.history.length || state.history.at(-1) !== text) state.history.push(text); if (state.history.length > 80) state.history.shift(); state.future = []; updateHistoryButtons(); }
+    function undo() { if (!state.history.length) return; state.future.push(editor.value); const text = state.history.pop(); editor.value = text; state.lastSnapshot = text; markDirty("json"); parseEditor(false); updateHistoryButtons(); toast("已復原"); }
+    function redo() { if (!state.future.length) return; state.history.push(editor.value); const text = state.future.pop(); editor.value = text; state.lastSnapshot = text; markDirty("json"); parseEditor(false); updateHistoryButtons(); toast("已重做"); }
+    function updateHistoryButtons() { $("undoBtn").disabled = !state.history.length; $("redoBtn").disabled = !state.future.length; }
+
+    function refreshFromDoc() {
+      state.candidates = detectCandidates(state.doc); renderCandidates(); renderInspector(); updateStatus(); $("dirtyDot").classList.toggle("on", state.dirty);
+    }
+    function parseEditor(captureHistory=true) {
+      if (captureHistory && editor.value !== state.lastSnapshot) { remember(state.lastSnapshot); state.lastSnapshot = editor.value; }
+      try { state.doc = JSON.parse(editor.value); state.valid = true; refreshFromDoc(); renderTree(); }
+      catch (error) { state.valid = false; updateStatus(error.message); }
+      syncEditorChrome();
+    }
+    function highlightJSON(text) {
+      const re = /"(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(?=\s*:)|"(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"|\btrue\b|\bfalse\b|\bnull\b|-?\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b/g;
+      let output = "", last = 0;
+      text.replace(re, (match, offset) => {
+        output += escapeHtml(text.slice(last, offset));
+        let cls = "syn-number";
+        if (match.startsWith('"')) {
+          const bare = match.slice(1,-1);
+          cls = /^\[\[[A-Za-z][A-Za-z0-9_]*\]\]$/.test(bare) ? "syn-token" : (/^\s*:/.test(text.slice(offset + match.length)) ? "syn-key" : "syn-string");
+        } else if (match === "true" || match === "false") cls = "syn-bool";
+        else if (match === "null") cls = "syn-null";
+        output += `<span class="${cls}">${escapeHtml(match)}</span>`; last = offset + match.length; return match;
+      });
+      return output + escapeHtml(text.slice(last)) + "\n";
+    }
+    function syncEditorChrome() {
+      const lines = editor.value.split("\n").length; $("lineNumbers").textContent = Array.from({length:lines},(_,i)=>i+1).join("\n"); $("highlight").innerHTML = highlightJSON(editor.value); syncScroll();
+    }
+    function syncScroll() { $("lineNumbers").scrollTop = editor.scrollTop; $("highlight").style.transform = `translate(${-editor.scrollLeft}px, ${-editor.scrollTop}px)`; }
+
+    function validateTemplate(doc) {
+      const issues = [];
+      if (!doc || typeof doc !== "object" || Array.isArray(doc)) return [{level:"error",message:"Workflow 根節點必須是 JSON object"}];
+      for (const [id,node] of Object.entries(doc)) if (!node || typeof node !== "object" || !node.inputs || typeof node.class_type !== "string") issues.push({level:"error",message:`Node ${id} 缺少 inputs 或 class_type`});
+      const tokens = [], malformed = [];
+      (function walk(v) { if (typeof v === "string") { const m=v.match(TOKEN_RE); if(m) tokens.push(m[1]); else if (/\[\[[^\]]+\]\]/.test(v)) malformed.push(v); } else if(Array.isArray(v)) v.forEach(walk); else if(v && typeof v === "object") Object.values(v).forEach(walk); })(doc);
+      malformed.forEach(v=>issues.push({level:"error",message:`TOKEN 必須是完整 JSON value：${v.slice(0,50)}`}));
+      const known = new Set(FIXED_TOKENS.map(x=>x[0]));
+      tokens.filter(t=>!known.has(t) && !/^REF_(IMG|AUD|VID)(0|[1-9][0-9]*)$/.test(t)).forEach(t=>issues.push({level:"error",message:`未知 TOKEN：[[${t}]]`}));
+      if (!tokens.includes("OUTPUT_PREFIX")) issues.push({level:"warning",message:"尚未設定必要的 [[OUTPUT_PREFIX]]"});
+      return issues;
+    }
+
+    function renderTree() {
+      if (!state.valid) { $("treeView").innerHTML = `<div class="validation-item error">JSON 語法錯誤，無法建立樹狀檢視</div>`; return; }
+      function branch(value, key="root", depth=0) {
+        if (value && typeof value === "object") {
+          const entries = Object.entries(value); const kind = Array.isArray(value) ? `Array(${entries.length})` : `Object(${entries.length})`;
+          return `<details class="tree-node" ${depth < 2 ? 'open' : ''}><summary><span class="tree-key">${escapeHtml(key)}</span> <span>${kind}</span></summary>${entries.map(([k,v])=>branch(v,k,depth+1)).join('')}</details>`;
+        }
+        const token = typeof value === "string" && TOKEN_RE.test(value); const number = typeof value === "number";
+        return `<div class="tree-node"><span class="tree-key">${escapeHtml(key)}</span>: <span class="tree-value ${token?'token':''} ${number?'number':''}">${escapeHtml(JSON.stringify(value))}</span></div>`;
+      }
+      $("treeView").innerHTML = branch(state.doc);
+    }
+
+    function switchView(view) {
+      state.view = view; $("codeViewBtn").classList.toggle("active",view==="code"); $("treeViewBtn").classList.toggle("active",view==="tree"); document.querySelector(".center").classList.toggle("tree-mode",view==="tree"); $("treeView").classList.toggle("active",view==="tree"); if(view==="tree") renderTree();
+    }
+    function updateStatus(error="") {
+      const issues = state.valid ? validateTemplate(state.doc) : []; const hasError = issues.some(x=>x.level==="error"), hasWarning = issues.some(x=>x.level==="warning");
+      $("statusDot").classList.toggle("error", !state.valid || hasError); $("statusDot").classList.toggle("warning", state.valid && !hasError && hasWarning); $("parseStatus").textContent = !state.valid ? "JSON 錯誤" : hasError ? "模板錯誤" : hasWarning ? "JSON 有效 · 模板待完成" : "模板有效";
+      $("parseStatus").title = error; const nodes = state.valid && state.doc && !Array.isArray(state.doc) ? Object.keys(state.doc).length : 0;
+      $("nodeStatus").textContent = `${nodes} nodes`; $("tokenStatus").textContent = `${state.valid ? usedTokens(state.doc).length : 0} tokens`;
+    }
+    function updateCursor() { const before=editor.value.slice(0,editor.selectionStart); const lines=before.split("\n"); $("cursorStatus").textContent=`Ln ${lines.length}, Col ${lines.at(-1).length+1}`; }
+
+    function loadText(text, name="workflow.json") {
+      try { const doc=JSON.parse(text); if(!doc || typeof doc!=="object" || Array.isArray(doc)) throw new Error("根節點必須是 JSON object"); state.doc=doc; state.fileName=name; state.jsonDirty=false; state.noteDirty=false; syncDirty(); state.valid=true; state.selectedId=null; state.history=[]; state.future=[]; $("noteInput").value=""; editor.value=pretty(doc); state.lastSnapshot=editor.value; $("fileName").textContent=name; refreshFromDoc(); syncEditorChrome(); renderTree(); updateHistoryButtons(); toast(`已載入 ${name}`); }
+      catch(error) { toast(`無法載入：${error.message}`); }
+    }
+    function readFile(file) { if (!file || (!file.name.toLowerCase().endsWith(".json") && file.type !== "application/json")) return toast("請選擇 .json 檔案"); const reader=new FileReader(); reader.onload=()=>loadText(reader.result,file.name); reader.onerror=()=>toast("讀取檔案失敗"); reader.readAsText(file,"utf-8"); }
+    function saveFile(contents, name, type) { const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([contents],{type})); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),500); }
+    function download() { if(!state.valid) return toast("JSON 語法錯誤，無法下載"); const errors=validateTemplate(state.doc).filter(x=>x.level==="error"); if(errors.length)return toast(`模板仍有 ${errors.length} 個錯誤，請先修正`); saveFile(pretty(state.doc)+"\n",templateBaseName()+".json","application/json;charset=utf-8"); state.jsonDirty=false; syncDirty(); toast($("noteInput").value.trim() ? "已下載 JSON；請再下載 note" : "已下載有效模板"); }
+    function downloadNote() { saveFile($("noteInput").value,templateBaseName()+".note.txt","text/plain;charset=utf-8"); state.noteDirty=false; syncDirty(); toast("已下載 note；請與同名 JSON 放在一起"); }
+
+    editor.addEventListener("input", ()=>{ markDirty("json"); clearTimeout(editor.parseTimer); editor.parseTimer=setTimeout(parseEditor,220); });
+    editor.addEventListener("scroll", syncScroll);
+    editor.addEventListener("keyup", updateCursor); editor.addEventListener("click", updateCursor);
+    editor.addEventListener("keydown", e=>{ if(e.key==="Tab"){ e.preventDefault(); const s=editor.selectionStart; editor.setRangeText("  ",s,editor.selectionEnd,"end"); editor.dispatchEvent(new Event("input")); } if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="f"){ e.preventDefault(); toggleFind(true); } if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"){e.preventDefault();e.shiftKey?redo():undo();} if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="y"){e.preventDefault();redo();} });
+    $("openBtn").addEventListener("click",()=>$("fileInput").click()); $("fileInput").addEventListener("change",e=>readFile(e.target.files[0])); $("downloadBtn").addEventListener("click",download);
+    $("noteInput").addEventListener("input",()=>markDirty("note"));
+    $("openNoteBtn").addEventListener("click",()=>$("noteFileInput").click());
+    $("noteFileInput").addEventListener("change",async e=>{ const file=e.target.files[0]; if(!file)return; const sourceBase=state.fileName.replace(/\.json$/i,""); const accepted=[sourceBase+".note.txt",templateBaseName()+".note.txt"]; if(!accepted.includes(file.name))return toast(`note 檔名應為 ${accepted.join(" 或 ")}`); $("noteInput").value=await file.text(); state.noteDirty=false; syncDirty(); e.target.value=""; toast("已載入 note"); });
+    $("downloadNoteBtn").addEventListener("click",downloadNote);
+    $("undoBtn").addEventListener("click",undo); $("redoBtn").addEventListener("click",redo);
+    $("codeViewBtn").addEventListener("click",()=>switchView("code")); $("treeViewBtn").addEventListener("click",()=>switchView("tree"));
+    $("themeBtn").addEventListener("click",()=>{ const themes=["dark","light","contrast"]; state.theme=themes[(themes.indexOf(state.theme)+1)%themes.length]; document.body.dataset.theme=state.theme; toast({dark:"深色模式",light:"淺色模式",contrast:"高對比模式"}[state.theme]); });
+    $("copyBtn").addEventListener("click",async()=>{ try { await navigator.clipboard.writeText(editor.value); toast("JSON 已複製到剪貼簿"); } catch { editor.focus(); editor.select(); document.execCommand("copy"); toast("JSON 已複製到剪貼簿"); } });
+    $("formatBtn").addEventListener("click",()=>{ if(!state.valid)return toast("請先修正 JSON 語法"); remember(editor.value); editor.value=pretty(state.doc); state.lastSnapshot=editor.value; syncEditorChrome(); toast("JSON 已格式化"); });
+    $("candidateSearch").addEventListener("input",renderCandidates); $("confidenceFilter").addEventListener("change",renderCandidates);
+    function toggleFind(force){ const open=force??!$("findbar").classList.contains("open"); $("findbar").classList.toggle("open",open); if(open) $("findInput").focus(); }
+    $("findToggle").addEventListener("click",()=>toggleFind());
+    function searchRegex(global=true) { const q=$("findInput").value; if(!q)return null; const source=$("regexMode").checked?q:q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); return new RegExp(source, `${global?'g':''}${$("caseSensitive").checked?'':'i'}`); }
+    $("findNextBtn").addEventListener("click",()=>{ let re; try{re=searchRegex(true)}catch(error){return toast(`Regex 錯誤：${error.message}`)} if(!re)return; re.lastIndex=state.searchAt; let match=re.exec(editor.value); if(!match){re.lastIndex=0;match=re.exec(editor.value)} if(match){switchView("code");editor.focus();editor.setSelectionRange(match.index,match.index+match[0].length);state.searchAt=match.index+Math.max(1,match[0].length);const line=editor.value.slice(0,match.index).split("\n").length;const lh=parseFloat(getComputedStyle(editor).lineHeight)||20.25;editor.scrollTop=Math.max(0,(line-5)*lh);syncScroll();updateCursor();}else toast("找不到符合字串"); });
+    $("replaceAllBtn").addEventListener("click",()=>{ let re; try{re=searchRegex(true)}catch(error){return toast(`Regex 錯誤：${error.message}`)} if(!re)return; const matches=[...editor.value.matchAll(re)]; if(!matches.length)return toast("找不到符合字串"); remember(editor.value); re.lastIndex=0; editor.value=editor.value.replace(re,$("replaceInput").value); state.lastSnapshot=editor.value; markDirty("json"); parseEditor(false); toast(`已取代 ${matches.length} 處`); });
+    let dragDepth=0; window.addEventListener("dragenter",e=>{e.preventDefault();dragDepth++;$("dropOverlay").classList.add("on")}); window.addEventListener("dragover",e=>e.preventDefault()); window.addEventListener("dragleave",e=>{e.preventDefault();if(--dragDepth<=0){dragDepth=0;$("dropOverlay").classList.remove("on")}}); window.addEventListener("drop",e=>{e.preventDefault();dragDepth=0;$("dropOverlay").classList.remove("on");readFile(e.dataTransfer.files[0])});
+    window.addEventListener("beforeunload",e=>{ if(state.dirty){e.preventDefault();e.returnValue="";} });
+
+    loadText(JSON.stringify(startupSample), "minimaxH3_8step.json");
+  </script>
+</body>
+</html>

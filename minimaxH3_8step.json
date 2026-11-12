@@ -1,0 +1,286 @@
+{
+  "1": {
+    "inputs": {
+      "unet_name": "10Eros_Max_h3_fl2va_bf16_test4_pruned_B.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "2": {
+    "inputs": {
+      "lora_name": "minimax_h3_turbo_4step_10ErosMax_test4_pruned_curveproj1025_exp_v001-T8.safetensors",
+      "strength_model": 1.0000000000000002,
+      "model": [
+        "17",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderBypassModelOnly",
+    "_meta": {
+      "title": "lora only"
+    }
+  },
+  "3": {
+    "inputs": {
+      "clip_name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "type": "minimax",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load CLIP"
+    }
+  },
+  "4": {
+    "inputs": {
+      "vae_name": "minimax_h3_video_vae_fp16.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "5": {
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "6": {
+    "inputs": {
+      "prompt": [
+        "36",
+        0
+      ],
+      "width": [
+        "16",
+        0
+      ],
+      "height": [
+        "16",
+        1
+      ],
+      "length": [
+        "15",
+        1
+      ],
+      "task_type": "I2VA",
+      "audio_mode": "native",
+      "audio_denoise_strength": 1,
+      "add_source_as_reference": false,
+      "prompt_primary_audio_ordinal": 0,
+      "strict_prompt_tags": true,
+      "ref_image_size": "match",
+      "reference_video_policy": "official_2_to_15s",
+      "clip": [
+        "3",
+        0
+      ],
+      "video_vae": [
+        "4",
+        0
+      ],
+      "audio_vae": [
+        "5",
+        0
+      ],
+      "first_frame": [
+        "37",
+        0
+      ]
+    },
+    "class_type": "MiniMaxH3AudioConditioningT8",
+    "_meta": {
+      "title": "MiniMax H3 Audio Conditioning (T8)"
+    }
+  },
+  "7": {
+    "inputs": {
+      "steps": 8,
+      "shift_video": 12,
+      "shift_audio": 3,
+      "sampler_name": "dual_clock_euler",
+      "scheduler": "native_flow",
+      "model": [
+        "2",
+        0
+      ],
+      "av_latent": [
+        "6",
+        1
+      ]
+    },
+    "class_type": "MiniMaxH3DualClockSamplerT8",
+    "_meta": {
+      "title": "STABLE 4 video / 4 audio"
+    }
+  },
+  "8": {
+    "inputs": {
+      "model": [
+        "7",
+        0
+      ],
+      "conditioning": [
+        "6",
+        0
+      ]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "Basic Guider"
+    }
+  },
+  "9": {
+    "inputs": {
+      "noise_seed": 123456789
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "RandomNoise"
+    }
+  },
+  "10": {
+    "inputs": {
+      "noise": [
+        "9",
+        0
+      ],
+      "guider": [
+        "8",
+        0
+      ],
+      "sampler": [
+        "7",
+        1
+      ],
+      "sigmas": [
+        "7",
+        2
+      ],
+      "latent_image": [
+        "6",
+        1
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "SamplerCustomAdvanced"
+    }
+  },
+  "11": {
+    "inputs": {
+      "av_latent": [
+        "10",
+        0
+      ],
+      "video_vae": [
+        "4",
+        0
+      ],
+      "audio_vae": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "MiniMaxH3AVDecodeT8",
+    "_meta": {
+      "title": "MiniMax H3 AV Decode (T8)"
+    }
+  },
+  "12": {
+    "inputs": {
+      "frame_rate": 24,
+      "loop_count": 0,
+      "filename_prefix": "MiniMaxH3/stable_4v4a",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true,
+      "images": [
+        "11",
+        0
+      ],
+      "audio": [
+        "11",
+        1
+      ]
+    },
+    "class_type": "VHS_VideoCombine",
+    "_meta": {
+      "title": "Video Combine 🎥🅥🅗🅢"
+    }
+  },
+  "14": {
+    "inputs": {
+      "value": 15
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "Float (duration)"
+    }
+  },
+  "15": {
+    "inputs": {
+      "expression": "max(5, round(a * 24)) + (5 - (max(5, round(a * 24)) % 17)) % 17",
+      "values.a": [
+        "14",
+        0
+      ]
+    },
+    "class_type": "ComfyMathExpression",
+    "_meta": {
+      "title": "Math Expression"
+    }
+  },
+  "16": {
+    "inputs": {
+      "aspect_ratio": "16:9 (Widescreen)",
+      "megapixels": 0.7,
+      "multiple": 32
+    },
+    "class_type": "ResolutionSelector",
+    "_meta": {
+      "title": "Resolution Selector"
+    }
+  },
+  "17": {
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "MiniMaxH3MemoryEfficientSageAttentionPatch",
+    "_meta": {
+      "title": "MiniMax H3 Mem Eff Sage Attention Patch"
+    }
+  },
+  "36": {
+    "inputs": {
+      "prompt": "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nintegrated_multimodal_description:\n[Shot 1] 画面精确起始于<Subject 1>（图中女人）的正面胸像：深青色纯净背景，黑色细吊带，棕色长发垂落双肩，冷调柔光勾勒出锁骨与肩部轮廓。她直视镜头，睫毛微颤，随后缓缓抬起右臂，指尖从肩前向外划出一道舞蹈弧线。镜头同步缓慢后拉，逐渐呈现她的腰部与脚下地面——指尖轨迹的正下方，深色地板上浮现出一条扁平的银蓝色光线，如同二维墨迹般紧贴地表，随她的舞步水平延伸。\n\n[Shot 2] At 00:03.000, 镜头切至中景，<Subject 1>开始旋转起舞，吊带衣摆随转身轻扬。地板上的扁平光痕骤然从地表剥离，升离地面，化为一条具有空间纵深的银蓝色光带，在她身体四周缠绕、翻卷，紧密追踪她手臂与肩膀的运动轨迹。光带边缘锐利，内部隐约可见细密的流动纹理，在深青色背景中投下微弱的冷色光晕。\n\n[Shot 3] At 00:06.500, 镜头随舞步缓慢横移。空间光带进一步物质化，从纤细的带状膨胀为富有体积感的半透明光质，如同液态丝绸般裹挟着无数细碎光粒子，环绕她的躯干与手臂流动。<Subject 1>舞蹈幅度加大，长发随转身甩动，体积光流在她每一次展臂时扩散，在每一次收手时聚拢，如呼吸般起伏。\n\n[Shot 4] At 00:10.000, 镜头快速拉远至全景。<Subject 1>在画面中央完成一次大幅度的双臂外展动作——指尖光流在伸展至极限的瞬间骤然爆发，体积物质向整个工作室空间扩散：深青色墙壁上蔓延开同心圆状的光纹，空气中充满悬浮翻转的光粒子与交织的光带，地面反射出粼粼波光。环境几何结构保持不变，但整个空间被她的舞蹈视觉语法彻底改写。她在光潮中央继续舞动，身影若隐若现。\n\n[Shot 5] At 00:13.000, 镜头缓缓推近至胸像构图。环境中的光流如退潮般向<Subject 1>的身体急速收缩，墙壁光纹黯淡，空中粒子汇聚，所有光线最终凝结为一颗微小的、缓慢脉动的银蓝色光点，轻轻落在她的锁骨中央——正是首帧画面中肩部高光的位置。她的舞姿收敛，双臂自然垂落，目光重新望向镜头，姿态与首帧构图精确呼应。光点在锁骨上微微闪烁，作为残留留存至画面结束。\n\noverall_soundscape: 工作室空间安静，可闻女人鞋底与地板的轻微摩擦声、长发甩动的微弱空气声及衣料摩挲声。扁平光痕出现时伴随极轻的高频嗡鸣，光带升离地面时嗡鸣降低并产生空间回响，物质化阶段出现细腻的粒子流动声如沙粒摩擦，环境爆发时一阵开阔的低频空气震颤席卷整个空间，最终收缩时所有声响迅速衰减，仅余光点微弱的脉动声。\n\nnon_diegetic_music: 冷调电子氛围音乐，以缓慢的合成器长音铺底开场，随舞蹈律动加入细碎的脉冲节拍与玻璃质感的高音点缀。环境峰值处音乐扩展为宽广的多层和声织体，低频增强。最终随光线收缩，音乐迅速收束为单个纯净高音的微弱回响，与锁骨上的光点同步缓慢淡出。"
+    },
+    "class_type": "CR Prompt Text",
+    "_meta": {
+      "title": "⚙️ CR Prompt Text"
+    }
+  },
+  "37": {
+    "inputs": {
+      "image": "34e67512265da29076075030b62ba93ec304210a09171ff68e1f44894d15a36c.jpg"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  }
+}

@@ -1,0 +1,700 @@
+{
+  "1": {
+    "inputs": {
+      "vae_name": "minimax_h3_video_vae_fp16.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "H3 video VAE"
+    }
+  },
+  "2": {
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "H3 audio VAE"
+    }
+  },
+  "3": {
+    "inputs": {
+      "clip_name": "qwen3vl_32b_heretic_minimax_h3_nvfp4.safetensors",
+      "type": "minimax",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "H3 CLIP"
+    }
+  },
+  "4": {
+    "inputs": {
+      "unet_name": "10Eros_Max_h3_hybrid_beta5_int8.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "H3 FL2VA"
+    }
+  },
+  "5": {
+    "inputs": {
+      "lora_name": "minimax\\minimax_h3_fl2v_turbo_4step_v1.2_768p_bf16.safetensors",
+      "strength_model": 0.8,
+      "model": [
+        "33",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderBypassModelOnly",
+    "_meta": {
+      "title": "LightX2V FL2V Turbo · corrected alpha8 · quantized-model bypass"
+    }
+  },
+  "6": {
+    "inputs": {
+      "image": "[[REF_IMG0]]"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "I2VA first frame"
+    }
+  },
+  "7": {
+    "inputs": {
+      "prompt": "[[PROMPT]]",
+      "width": "[[WIDTH]]",
+      "height": "[[HEIGHT]]",
+      "length": [
+        "30",
+        1
+      ],
+      "task_type": "[[TASK_TYPE]]",
+      "audio_mode": "reference_only",
+      "audio_denoise_strength": 1,
+      "add_source_as_reference": false,
+      "prompt_primary_audio_ordinal": 0,
+      "strict_prompt_tags": false,
+      "ref_image_size": "match",
+      "reference_video_policy": "official_2_to_15s",
+      "allow_above_reference_area": false,
+      "clip": [
+        "3",
+        0
+      ],
+      "video_vae": [
+        "1",
+        0
+      ],
+      "audio_vae": [
+        "2",
+        0
+      ],
+      "drive_audio": [
+        "109",
+        0
+      ],
+      "ref_images.ref_image_0": [
+        "6",
+        0
+      ],
+      "ref_images.ref_image_1": [
+        "37",
+        0
+      ],
+      "ref_audios.ref_audio_0": [
+        "88",
+        0
+      ],
+      "ref_audios.ref_audio_1": [
+        "89",
+        0
+      ]
+    },
+    "class_type": "MiniMaxH3AudioConditioningT8",
+    "_meta": {
+      "title": "LOW Conditioning 736x416"
+    }
+  },
+  "8": {
+    "inputs": {
+      "steps": 11,
+      "shift_video": 12,
+      "shift_audio": 3,
+      "sampler_name": "dual_clock_euler",
+      "scheduler": "native_flow",
+      "model": [
+        "96",
+        0
+      ],
+      "av_latent": [
+        "7",
+        1
+      ]
+    },
+    "class_type": "MiniMaxH3DualClockSamplerT8",
+    "_meta": {
+      "title": "LOW upstream I2V sampler contract · shift 12/3"
+    }
+  },
+  "9": {
+    "inputs": {
+      "base_steps": 14,
+      "coarse_steps": 10,
+      "refine_steps": 4,
+      "model": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "MiniMaxH3LearnedTwoPassParityPlanT8Advanced",
+    "_meta": {
+      "title": "Published LBH schedule · simple8 split4 + refine3"
+    }
+  },
+  "10": {
+    "inputs": {
+      "model": [
+        "8",
+        0
+      ],
+      "conditioning": [
+        "7",
+        0
+      ]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "LOW guider"
+    }
+  },
+  "11": {
+    "inputs": {
+      "noise_seed": "[[SEED]]"
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "LOW noise"
+    }
+  },
+  "12": {
+    "inputs": {
+      "noise": [
+        "11",
+        0
+      ],
+      "guider": [
+        "10",
+        0
+      ],
+      "sampler": [
+        "8",
+        1
+      ],
+      "sigmas": [
+        "9",
+        0
+      ],
+      "latent_image": [
+        "7",
+        1
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "PASS 1 - consume denoised_output"
+    }
+  },
+  "13": {
+    "inputs": {
+      "model_name": "minimax_h3_latent_upscaler_3d_fp16.safetensors",
+      "size_mode": "scale_by",
+      "scale_by": 1.5,
+      "target_megapixels": 1,
+      "target_width": 1280,
+      "target_height": 704,
+      "aspect_policy": "preserve_source",
+      "max_anisotropy": 1.05,
+      "precision": "fp16",
+      "release_policy": "offload_after",
+      "av_latent": [
+        "12",
+        1
+      ]
+    },
+    "class_type": "MiniMaxH3LearnedLatentUpscaleT8Advanced",
+    "_meta": {
+      "title": "Upstream-default learned 3D latent upscale · 2x"
+    }
+  },
+  "14": {
+    "inputs": {
+      "prompt": "[[PROMPT]]",
+      "width": [
+        "13",
+        1
+      ],
+      "height": [
+        "13",
+        2
+      ],
+      "length": [
+        "30",
+        1
+      ],
+      "task_type": "[[TASK_TYPE]]",
+      "audio_mode": "reference_only",
+      "audio_denoise_strength": 1,
+      "add_source_as_reference": false,
+      "prompt_primary_audio_ordinal": 0,
+      "strict_prompt_tags": true,
+      "ref_image_size": "match",
+      "reference_video_policy": "official_2_to_15s",
+      "allow_above_reference_area": false,
+      "clip": [
+        "3",
+        0
+      ],
+      "video_vae": [
+        "1",
+        0
+      ],
+      "audio_vae": [
+        "2",
+        0
+      ],
+      "drive_audio": [
+        "109",
+        0
+      ],
+      "ref_images.ref_image_0": [
+        "6",
+        0
+      ],
+      "ref_images.ref_image_1": [
+        "37",
+        0
+      ],
+      "ref_audios.ref_audio_0": [
+        "88",
+        0
+      ],
+      "ref_audios.ref_audio_1": [
+        "89",
+        0
+      ]
+    },
+    "class_type": "MiniMaxH3AudioConditioningT8",
+    "_meta": {
+      "title": "HIGH Conditioning · width/height auto-linked from upscaler"
+    }
+  },
+  "15": {
+    "inputs": {
+      "audio_policy": "auto",
+      "second_pass_audio_source": "legacy_policy",
+      "second_pass_audio_strength": 0,
+      "learned_latent": [
+        "13",
+        0
+      ],
+      "highres_template": [
+        "14",
+        1
+      ],
+      "positive": [
+        "14",
+        0
+      ]
+    },
+    "class_type": "MiniMaxH3TwoPassLatentReconcileT8Advanced",
+    "_meta": {
+      "title": "Validate and reconcile HIGH contract"
+    }
+  },
+  "16": {
+    "inputs": {
+      "shift_video": 12,
+      "shift_audio": 3,
+      "enable_tail": false,
+      "extra_tail_steps": 1,
+      "tail_spacing": "video_sigma_linear",
+      "enable_model_time_bias": false,
+      "bias": -0.025,
+      "bias_start_progress": 0.7,
+      "bias_end_progress": 0.95,
+      "bias_domain": "video_sigma",
+      "enable_stg": false,
+      "stg_scale": 0.35,
+      "stg_double_blocks": "25",
+      "stg_start_progress": 0.25,
+      "stg_end_progress": 0.85,
+      "enable_restart": false,
+      "restart_video_sigma": 0.15,
+      "restart_steps": 3,
+      "restart_seed": "[[SEED]]",
+      "model": [
+        "101",
+        0
+      ],
+      "av_latent": [
+        "15",
+        0
+      ],
+      "refine_sigmas": [
+        "9",
+        1
+      ]
+    },
+    "class_type": "MiniMaxH3TwoPassDetailMixerT8Advanced",
+    "_meta": {
+      "title": "HIGH upstream refine · optional Tail/Bias/STG/Restart off by default"
+    }
+  },
+  "17": {
+    "inputs": {
+      "model": [
+        "16",
+        0
+      ],
+      "conditioning": [
+        "15",
+        1
+      ]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "HIGH guider"
+    }
+  },
+  "19": {
+    "inputs": {
+      "noise": [
+        "50",
+        0
+      ],
+      "guider": [
+        "17",
+        0
+      ],
+      "sampler": [
+        "16",
+        1
+      ],
+      "sigmas": [
+        "16",
+        2
+      ],
+      "latent_image": [
+        "15",
+        0
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "PASS 2 · decode output, not denoised_output"
+    }
+  },
+  "20": {
+    "inputs": {
+      "av_latent": [
+        "19",
+        0
+      ],
+      "video_vae": [
+        "1",
+        0
+      ],
+      "audio_vae": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "MiniMaxH3AVDecodeT8",
+    "_meta": {
+      "title": "Decode HIGH AV"
+    }
+  },
+  "21": {
+    "inputs": {
+      "frame_rate": 24,
+      "loop_count": 0,
+      "filename_prefix": "[[OUTPUT_PREFIX]]",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p10le",
+      "crf": 22,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true,
+      "images": [
+        "20",
+        0
+      ],
+      "audio": [
+        "20",
+        1
+      ]
+    },
+    "class_type": "VHS_VideoCombine",
+    "_meta": {
+      "title": "Save synchronized MP4"
+    }
+  },
+  "27": {
+    "inputs": {
+      "value": "[[DURATION]]"
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "Float (duration)"
+    }
+  },
+  "29": {
+    "inputs": {
+      "aspect_ratio": "9:16 (Portrait Widescreen)",
+      "megapixels": 0.6,
+      "multiple": 32
+    },
+    "class_type": "ResolutionSelector",
+    "_meta": {
+      "title": "Resolution Selector"
+    }
+  },
+  "30": {
+    "inputs": {
+      "expression": "max(5, round(a * 24)) + (5 - (max(5, round(a * 24)) % 17)) % 17",
+      "values.a": [
+        "27",
+        0
+      ]
+    },
+    "class_type": "ComfyMathExpression",
+    "_meta": {
+      "title": "Math Expression"
+    }
+  },
+  "33": {
+    "inputs": {
+      "attention": "comfy kitchen attention",
+      "model": [
+        "108",
+        0
+      ]
+    },
+    "class_type": "ModelAttentionBackend",
+    "_meta": {
+      "title": "ModelAttentionBackend"
+    }
+  },
+  "37": {
+    "inputs": {
+      "image": "[[REF_IMG1]]"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "I2VA first frame 2"
+    }
+  },
+  "50": {
+    "inputs": {
+      "noise_seed": "[[SEED]]"
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "LOW noise"
+    }
+  },
+  "51": {
+    "inputs": {
+      "frame_rate": 24,
+      "loop_count": 0,
+      "filename_prefix": "[[OUTPUT_PREFIX]]",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p10le",
+      "crf": 22,
+      "save_metadata": false,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": false,
+      "images": [
+        "52",
+        0
+      ],
+      "audio": [
+        "52",
+        1
+      ]
+    },
+    "class_type": "VHS_VideoCombine",
+    "_meta": {
+      "title": "Save synchronized MP4"
+    }
+  },
+  "52": {
+    "inputs": {
+      "av_latent": [
+        "12",
+        1
+      ],
+      "video_vae": [
+        "1",
+        0
+      ],
+      "audio_vae": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "MiniMaxH3AVDecodeT8",
+    "_meta": {
+      "title": "Decode HIGH AV"
+    }
+  },
+  "88": {
+    "inputs": {
+      "audio": "[[REF_AUD0]]",
+      "start_time": 0,
+      "duration": 0
+    },
+    "class_type": "VHS_LoadAudioUpload",
+    "_meta": {
+      "title": "Load Audio (Upload)🎥🅥🅗🅢"
+    }
+  },
+  "89": {
+    "inputs": {
+      "audio": "[[REF_AUD1]]",
+      "start_time": 0,
+      "duration": 0
+    },
+    "class_type": "VHS_LoadAudioUpload",
+    "_meta": {
+      "title": "Load Audio (Upload)🎥🅥🅗🅢 2"
+    }
+  },
+  "96": {
+    "inputs": {
+      "lora_name": "minimax\\Motion_Repair.safetensors",
+      "strength_model": 0.7,
+      "model": [
+        "103",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderBypassModelOnly",
+    "_meta": {
+      "title": "LightX2V FL2V Turbo · corrected alpha8 · quantized-model bypass"
+    }
+  },
+  "98": {
+    "inputs": {
+      "lora_name": "minimax\\Motion_Repair.safetensors",
+      "strength_model": 0.2,
+      "model": [
+        "99",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderBypassModelOnly",
+    "_meta": {
+      "title": "LightX2V FL2V Turbo · corrected alpha8 · quantized-model bypass"
+    }
+  },
+  "99": {
+    "inputs": {
+      "lora_name": "minimax\\minimax_h3_fl2v_turbo_4step_v0.1_alpha8_T8_10ErosMax_test4_pruned_compat_v001-T8.safetensors",
+      "strength_model": 0.7,
+      "model": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderBypassModelOnly",
+    "_meta": {
+      "title": "LightX2V FL2V Turbo · corrected alpha8 · quantized-model bypass"
+    }
+  },
+  "101": {
+    "inputs": {
+      "lora_name": "minimax\\minimax_h3_lms_v1.0_r64.safetensors",
+      "strength_model": 0.3,
+      "model": [
+        "98",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderBypassModelOnly",
+    "_meta": {
+      "title": "LightX2V FL2V Turbo · corrected alpha8 · quantized-model bypass"
+    }
+  },
+  "103": {
+    "inputs": {
+      "lora_name": "minimax\\minimax_h3_turbo_4step_10ErosMax_test4_pruned_curveproj1025_exp_v001-T8.safetensors",
+      "strength_model": 0.5,
+      "model": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderBypassModelOnly",
+    "_meta": {
+      "title": "LightX2V FL2V Turbo · corrected alpha8 · quantized-model bypass"
+    }
+  },
+  "105": {
+    "inputs": {
+      "purge_cache": true,
+      "purge_models": true,
+      "anything": [
+        "52",
+        0
+      ]
+    },
+    "class_type": "LayerUtility: PurgeVRAM V2",
+    "_meta": {
+      "title": "LayerUtility: Purge VRAM V2"
+    }
+  },
+  "106": {
+    "inputs": {
+      "purge_cache": true,
+      "purge_models": true,
+      "anything": [
+        "20",
+        0
+      ]
+    },
+    "class_type": "LayerUtility: PurgeVRAM V2",
+    "_meta": {
+      "title": "LayerUtility: Purge VRAM V2"
+    }
+  },
+  "108": {
+    "inputs": {
+      "chunks": 2,
+      "seq_threshold": 4096,
+      "model": [
+        "4",
+        0
+      ]
+    },
+    "class_type": "MiniMaxH3ChunkFeedForwardT8Advanced",
+    "_meta": {
+      "title": "MiniMax H3 Chunk FeedForward / 分块前馈 (Advanced EXP/T8)"
+    }
+  },
+  "109": {
+    "inputs": {
+      "audio": "[[Drive_AUD]]",
+      "start_time": 0,
+      "duration": 0
+    },
+    "class_type": "VHS_LoadAudioUpload",
+    "_meta": {
+      "title": "Drive audio: first selected audio or character"
+    }
+  }
+}

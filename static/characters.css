@@ -1,0 +1,19 @@
+.character-dialog{width:min(1180px,96vw);max-width:96vw;max-height:92vh;padding:0;overflow:auto}
+.character-dialog::backdrop{background:#171a1fb3;backdrop-filter:blur(4px)}
+.character-dialog .dialog-heading{position:sticky;top:0;z-index:2;background:var(--panel)}
+.character-filters{display:flex;gap:16px;align-items:end;flex-wrap:wrap;padding:20px 26px 0}
+.character-filters>label:first-child{flex:1;min-width:200px}.character-filters .check{padding-bottom:12px}
+#character-status{padding:0 26px}.character-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;padding:0 26px}
+.character-card{border:1px solid var(--line);background:#fff;border-radius:5px;overflow:hidden;min-width:0}
+.character-card.selected{border:2px solid var(--green);box-shadow:0 0 0 2px #2f6f5e22}
+.character-card img{width:100%;height:190px;object-fit:cover;object-position:top;background:var(--paper)}
+.character-card-body{padding:13px}.character-card label{display:flex;align-items:center;font-size:1rem;margin-bottom:8px}.character-card input{width:auto}
+.character-card p{font-size:.8rem;color:var(--muted);margin:8px 0;white-space:pre-wrap}.character-card audio{width:100%;height:34px}.character-card details{font-size:.78rem;margin-top:8px}
+.character-pagination{display:flex;gap:20px;align-items:center;justify-content:center;padding:20px}.character-dialog .dialog-footer{position:sticky;bottom:0;background:var(--panel);z-index:2}
+@media(max-width:850px){.character-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:450px){.character-grid{padding:0 12px;gap:10px}.character-card img{height:150px}.character-filters{padding:15px 12px 0}.character-card-body{padding:9px}}
+
+.character-card img.character-turnaround{height:auto;object-fit:contain;display:block;margin-top:10px}
+.character-card img.character-turnaround{width:calc(100% + 26px);max-width:none;margin-left:-13px}
+@media(max-width:450px){.character-card img.character-turnaround{width:calc(100% + 18px);margin-left:-9px}}
+.asset-card audio{max-width:100%}

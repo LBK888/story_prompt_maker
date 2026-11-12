@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+{% block title %}專案 · Vid Auto Prompt{% endblock %}
+{% block topbar_actions %}<button class="ghost small model-settings-trigger" id="model-settings-button" type="button">模型設定</button>{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <p class="eyebrow">LOCAL STORY → MINIMAX H3</p>
+    <h1>把短故事變成<br>可審核的影片計畫。</h1>
+    <p class="lede">可切換本機 GGUF 或常見 LLM API 生成分鏡與 H3 prompt；ComfyUI 保持完全獨立。</p>
+  </div>
+  <form id="create-form" class="new-project panel">
+    <label>專案名稱<input name="name" required maxlength="100" placeholder="例如：雨夜車站"></label>
+    <label>故事草稿<textarea name="story" rows="6" placeholder="貼上一小段故事，建立後仍可修改。"></textarea></label>
+    <button class="primary" type="submit">建立專案</button>
+  </form>
+</section>
+
+<section class="section-head">
+  <div><p class="eyebrow">PROJECTS</p><h2>最近專案</h2></div>
+  <div class="button-row"><button id="import-project" class="ghost" type="button">匯入專案包</button><input id="project-archive" type="file" accept=".zip" hidden><span class="count">{{ projects|length }}</span></div>
+</section>
+<section class="project-grid" id="project-grid">
+  {% for item in projects %}
+  <article class="project-card" data-project-id="{{ item.id }}">
+    <a class="project-card-link" href="/projects/{{ item.id }}">
+      <span class="status-dot"></span>
+      <h3>{{ item.name }}</h3>
+      <p>{{ item.settings.story[:120] or "尚未輸入故事" }}</p>
+      <div class="card-meta"><span>{{ item.segments|length }} 段</span><time>{{ item.updated_at[:16]|replace("T", " ") }}</time></div>
+    </a>
+    <button class="danger small delete-project" type="button" title="移出最近專案（保留檔案）" aria-label="刪除專案 {{ item.name }}">刪除</button>
+  </article>
+  {% else %}
+  <div class="empty">還沒有專案。先從右上方建立第一個故事。</div>
+  {% endfor %}
+</section>
+
+<dialog id="model-settings-dialog" class="panel dialog model-settings-dialog" aria-labelledby="model-settings-title">
+  <div class="dialog-heading">
+    <div><p class="eyebrow">LLM ROUTING</p><h2 id="model-settings-title">模型設定</h2></div>
+    <form method="dialog"><button class="dialog-close" aria-label="關閉模型設定">×</button></form>
+  </div>
+  <div class="model-settings-grid">
+    <section class="model-provider-panel">
+      <label>連線方式<select id="llm-provider"></select></label>
+      <p class="hint">切換 provider 不會刪除其他連線資料；下次切回時會保留 URL、模型與已儲存的 Key。</p>
+      <div class="provider-summary" id="provider-summary"></div>
+    </section>
+    <section class="model-fields">
+      <div id="local-model-fields">
+        <div class="field-heading"><b>本機模型</b><button class="ghost small" id="rescan-local-models" type="button">重新掃描</button></div>
+        <p class="hint">啟動時自動掃描程式根目錄與 models 子目錄中的 .gguf 檔。</p>
+        <label>視覺投影模型（選填）<select id="llm-mmproj"></select></label>
+      </div>
+      <div id="remote-model-fields" hidden>
+        <label>API URL<input id="llm-base-url" type="url" spellcheck="false" placeholder="https://…/v1"></label>
+        <label>API Key<input id="llm-api-key" type="password" autocomplete="new-password" spellcheck="false" placeholder="留白表示沿用已儲存的 Key"></label>
+        <label class="check clear-key-row"><input id="clear-api-key" type="checkbox"> 清除這個 provider 已儲存的 Key</label>
+        <div class="key-state" id="api-key-state"></div>
+        <button class="ghost" id="refresh-api-models" type="button">載入 API 模型清單</button>
+      </div>
+      <div class="model-picker">
+        <label>搜尋或輸入模型 ID<input id="llm-model-search" type="search" autocomplete="off" placeholder="關鍵字篩選；Enter 使用完整 ID"></label>
+        <select id="llm-model-list" size="5" aria-label="模型清單"></select>
+        <p class="selected-model">目前選擇：<b id="selected-model-name">尚未選擇</b></p>
+      </div>
+      <label>Context size<input id="llm-context" type="number" min="1024" max="262144" step="1024"></label>
+    </section>
+  </div>
+  <div class="dialog-footer">
+    <p class="hint" id="model-settings-result" role="status"></p>
+    <div class="button-row"><form method="dialog"><button class="ghost" type="submit">取消</button></form><button class="primary" id="save-model-settings" type="button">儲存模型設定</button></div>
+  </div>
+</dialog>
+{% endblock %}
+{% block scripts %}
+<script src="/static/project-import.js?v={{ version }}&build=1"></script>
+<script>
+const modelDialog = document.querySelector('#model-settings-dialog');
+const providerSelect = document.querySelector('#llm-provider');
+const modelSearch = document.querySelector('#llm-model-search');
+const modelList = document.querySelector('#llm-model-list');
+let settingsState = null;
+let availableModels = [];
+let selectedModel = '';
+
+function showToast(message, error=false) {
+  const toast = document.querySelector('#toast');
+  toast.textContent = message;
+  toast.style.background = error ? 'var(--red)' : 'var(--ink)';
+  toast.hidden = false;
+  window.setTimeout(() => { toast.hidden = true; }, 3200);
+}
+
+async function requestJson(url, options={}) {
+  const response = await fetch(url, options);
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.detail || '操作失敗');
+  return body;
+}
+
+function formatModelOption(item) {
+  if (typeof item === 'string') return {value:item, label:item};
+  const gib = item.size_bytes / (1024 ** 3);
+  return {value:item.path, label:`${item.name} · ${gib >= .1 ? gib.toFixed(1) + ' GB' : '< 0.1 GB'}`};
+}
+
+function renderModelList() {
+  const keyword = modelSearch.value.trim().toLocaleLowerCase();
+  const normalized = availableModels.map(formatModelOption);
+  const filtered = normalized.filter(item => !keyword || item.label.toLocaleLowerCase().includes(keyword) || item.value.toLocaleLowerCase().includes(keyword));
+  modelList.innerHTML = '';
+  for (const item of filtered) {
+    const option = document.createElement('option');
+    option.value = item.value;
+    option.textContent = item.label;
+    option.selected = item.value === selectedModel;
+    modelList.append(option);
+  }
+  if (!filtered.length) {
+    const option = document.createElement('option');
+    option.disabled = true;
+    option.textContent = keyword ? '沒有符合的模型；API 模型可直接輸入完整 ID' : '尚未載入模型清單';
+    modelList.append(option);
+  }
+  document.querySelector('#selected-model-name').textContent = selectedModel || '尚未選擇';
+}
+
+function renderMmproj(items, current) {
+  const select = document.querySelector('#llm-mmproj');
+  select.innerHTML = '<option value="">不使用 mmproj</option>';
+  for (const item of items) {
+    const option = document.createElement('option');
+    option.value = item.path;
+    option.textContent = item.name;
+    select.append(option);
+  }
+  select.value = current || '';
+}
+
+function renderProvider() {
+  const provider = providerSelect.value;
+  const profile = settingsState.llm.profiles[provider];
+  const local = provider === 'local';
+  document.querySelector('#local-model-fields').hidden = !local;
+  document.querySelector('#remote-model-fields').hidden = local;
+  document.querySelector('#llm-base-url').value = profile.base_url || '';
+  document.querySelector('#llm-api-key').value = '';
+  document.querySelector('#clear-api-key').checked = false;
+  document.querySelector('#api-key-state').textContent = settingsState.llm.api_key_set[provider] ? 'Key 已安全儲存在 .env；留白將繼續沿用。' : '尚未儲存 Key。若服務不需要驗證可留白。';
+  const label = settingsState.llm.providers.find(item => item.id === provider)?.label || provider;
+  document.querySelector('#provider-summary').innerHTML = `<span>${local ? 'LOCAL' : 'API'}</span><b>${label}</b>`;
+  selectedModel = profile.model || '';
+  modelSearch.value = '';
+  availableModels = local ? settingsState.llm.local_models : (profile.cached_models || []);
+  renderMmproj(settingsState.llm.mmproj_models, settingsState.llm.mmproj_path);
+  renderModelList();
+}
+
+async function openModelSettings() {
+  document.querySelector('#model-settings-result').textContent = '正在讀取設定…';
+  modelDialog.showModal();
+  try {
+    settingsState = await requestJson('/api/config');
+    providerSelect.innerHTML = settingsState.llm.providers.map(item => `<option value="${item.id}">${item.label}</option>`).join('');
+    providerSelect.value = settingsState.llm.provider;
+    document.querySelector('#llm-context').value = settingsState.llama_context;
+    renderProvider();
+    const activeProvider = providerSelect.value;
+    if (activeProvider !== 'local' && (settingsState.llm.api_key_set[activeProvider] || ['ollama', 'openrouter'].includes(activeProvider))) refreshModels();
+    document.querySelector('#model-settings-result').textContent = '';
+  } catch (error) {
+    document.querySelector('#model-settings-result').textContent = error.message;
+  }
+}
+
+async function refreshModels() {
+  const provider = providerSelect.value;
+  const button = provider === 'local' ? document.querySelector('#rescan-local-models') : document.querySelector('#refresh-api-models');
+  button.disabled = true;
+  document.querySelector('#model-settings-result').textContent = provider === 'local' ? '正在掃描 GGUF…' : '正在向 API 取得模型…';
+  try {
+    const body = await requestJson('/api/llm/models', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({provider, base_url:document.querySelector('#llm-base-url').value, api_key:document.querySelector('#llm-api-key').value}),
+    });
+    availableModels = body.models;
+    if (provider === 'local') {
+      settingsState.llm.local_models = body.models;
+      settingsState.llm.mmproj_models = body.mmproj_models;
+      renderMmproj(body.mmproj_models, document.querySelector('#llm-mmproj').value);
+    } else {
+      settingsState.llm.profiles[provider].cached_models = body.models;
+    }
+    renderModelList();
+    document.querySelector('#model-settings-result').textContent = `已載入 ${body.models.length} 個模型。`;
+  } catch (error) {
+    document.querySelector('#model-settings-result').textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+document.querySelector('#model-settings-button').addEventListener('click', openModelSettings);
+providerSelect.addEventListener('change', () => {
+  renderProvider();
+  const provider = providerSelect.value;
+  if (provider !== 'local' && (settingsState.llm.api_key_set[provider] || ['ollama', 'openrouter'].includes(provider))) refreshModels();
+});
+modelSearch.addEventListener('input', renderModelList);
+modelSearch.addEventListener('keydown', event => {
+  if (event.key !== 'Enter' || !modelSearch.value.trim()) return;
+  event.preventDefault();
+  selectedModel = modelSearch.value.trim();
+  renderModelList();
+});
+modelList.addEventListener('change', () => { selectedModel = modelList.value; renderModelList(); });
+document.querySelector('#rescan-local-models').addEventListener('click', refreshModels);
+document.querySelector('#refresh-api-models').addEventListener('click', refreshModels);
+document.querySelector('#save-model-settings').addEventListener('click', async () => {
+  const provider = providerSelect.value;
+  const typedModel = modelSearch.value.trim();
+  const model = selectedModel || (provider !== 'local' ? typedModel : '');
+  const button = document.querySelector('#save-model-settings');
+  button.disabled = true;
+  document.querySelector('#model-settings-result').textContent = '正在儲存…';
+  try {
+    settingsState = await requestJson('/api/config', {
+      method:'PATCH', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({llm:{
+        provider, model,
+        base_url:document.querySelector('#llm-base-url').value,
+        api_key:document.querySelector('#llm-api-key').value,
+        clear_api_key:document.querySelector('#clear-api-key').checked,
+        mmproj_path:document.querySelector('#llm-mmproj').value,
+        llama_context:document.querySelector('#llm-context').value,
+      }}),
+    });
+    document.querySelector('#model-settings-result').textContent = '設定已儲存；下一次 LLM 工作會使用這個模型。';
+    showToast('模型設定已儲存');
+    window.setTimeout(() => modelDialog.close(), 700);
+  } catch (error) {
+    document.querySelector('#model-settings-result').textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+});
+
+document.querySelector('#create-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const data = Object.fromEntries(new FormData(event.target));
+  const response = await fetch('/api/projects', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+  const body = await response.json();
+  if (!response.ok) return window.alert(body.detail || '建立失敗');
+  location.href = `/projects/${body.id}`;
+});
+for (const button of document.querySelectorAll('.delete-project')) {
+  button.addEventListener('click', async () => {
+    if (!window.confirm('將專案移出最近專案？專案資料與生成檔案都會保留。')) return;
+    const card = button.closest('.project-card');
+    button.disabled = true;
+    const response = await fetch(`/api/projects/${card.dataset.projectId}`, {
+      method:'PATCH',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({archived:true}),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      button.disabled = false;
+      return window.alert(body.detail || '刪除失敗');
+    }
+    card.remove();
+    const remaining = document.querySelectorAll('.project-card').length;
+    document.querySelector('.section-head .count').textContent = remaining;
+    if (!remaining) document.querySelector('#project-grid').innerHTML = '<div class="empty">還沒有專案。先從右上方建立第一個故事。</div>';
+  });
+}
+</script>
+{% endblock %}

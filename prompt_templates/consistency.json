@@ -1,0 +1,10 @@
+{
+  "templates": [
+    {
+      "Name": "參考人物一致性",
+      "Type": "片段",
+      "Note": "插入到前面",
+      "Prompt": "Maintain 100% absolute consistency in facial identity, skin texture, hairstyle, body anatomy, existing outfit, and accessories. No outfit changes. Photorealistic pores, individual hair strands, natural fabric physics. No CGI, no anime, no plastic skin."
+    }
+  ]
+}
