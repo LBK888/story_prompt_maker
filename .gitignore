@@ -11,6 +11,11 @@ runtime/
 /outputs/
 /models/
 *.gguf
+# Keep personal workflows local. The two distributed examples are tracked explicitly.
+/minimaxH3_8step.json
+/workflow_templates/*.json
+!/workflow_templates/10eros_singularity_ref2va_template.json
+!/workflow_templates/10eros_singularity_t2va_template.json
 .pytest_cache/
 
 # Publish only the male character templates.

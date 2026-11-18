@@ -108,6 +108,11 @@ function formatModelOption(item) {
 function renderModelList() {
   const keyword = modelSearch.value.trim().toLocaleLowerCase();
   const normalized = availableModels.map(formatModelOption);
+  if (providerSelect.value === 'openrouter') {
+    const index = normalized.findIndex(item => item.value === 'openrouter/free');
+    if (index >= 0) normalized.splice(index, 1);
+    normalized.unshift({value:'openrouter/free', label:'自動選擇免費模型 · openrouter/free'});
+  }
   const filtered = normalized.filter(item => !keyword || item.label.toLocaleLowerCase().includes(keyword) || item.value.toLocaleLowerCase().includes(keyword));
   modelList.innerHTML = '';
   for (const item of filtered) {
@@ -184,6 +189,7 @@ async function refreshModels() {
       method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify({provider, base_url:document.querySelector('#llm-base-url').value, api_key:document.querySelector('#llm-api-key').value}),
     });
+    if (providerSelect.value !== provider) return;
     availableModels = body.models;
     if (provider === 'local') {
       settingsState.llm.local_models = body.models;

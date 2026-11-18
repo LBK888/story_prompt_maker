@@ -29,7 +29,7 @@ class NoLlm:
 
 
 @pytest.fixture
-def backend(tmp_path, monkeypatch):
+def backend(tmp_path, monkeypatch, still_templates):
     import app.main as main
 
     store = ProjectStore(tmp_path / "projects")

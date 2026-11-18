@@ -29,5 +29,4 @@ Placeholders may occur multiple times; every occurrence receives the same typed 
 
 Optional template notes use a separate UTF-8 plain-text file next to the JSON: `example_template.json` pairs with `example_template.note.txt`. The standalone workflow keyword editor has a note field and separate download buttons for these two files. Keep their base names identical when copying them into `workflow_templates/`. The app shows a nonempty note when the template is selected and stores it with the project snapshot. The note file is never parsed as a ComfyUI node, searched for tokens, or sent to ComfyUI. Existing workflows, including those with a real `note` node, need no changes.
 
-
-`AAIIref2AV_1.5x_template.json` is the marked two-pass version of the supplied original. Both conditioning passes share prompt, media and task values; noise nodes share the seed. Output dimensions feed the first pass and the existing 1.5× upscaler remains unchanged. The extra drive-audio loader receives the same file as the first selected audio-capable asset. The original unmarked JSON is retained.
+Bundled video workflows: **10eros_singularity_t2va_template** (text only) and **10eros_singularity_ref2va_template** (one image and one audio reference).

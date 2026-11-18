@@ -43,7 +43,7 @@ def test_llm_filename_title_is_sanitized_and_limited(tmp_path):
     assert len(title) == 10
 
 
-def test_generated_still_becomes_project_asset_and_replaces_segment_frame(tmp_path, monkeypatch):
+def test_generated_still_becomes_project_asset_and_replaces_segment_frame(tmp_path, monkeypatch, still_templates):
     store = ProjectStore(tmp_path / "projects")
     project = store.create("Stills")
     project_id = project["id"]
@@ -128,7 +128,7 @@ def test_generated_still_becomes_project_asset_and_replaces_segment_frame(tmp_pa
     asyncio.run(scenario())
 
 
-def test_image_batch_submits_independent_seeds_before_waiting_and_frees_local_comfy(tmp_path, monkeypatch):
+def test_image_batch_submits_independent_seeds_before_waiting_and_frees_local_comfy(tmp_path, monkeypatch, still_templates):
     store = ProjectStore(tmp_path / "projects")
     project = store.create("Batch stills")
     segment = _blank_segment(1, 15, "segment_001")
