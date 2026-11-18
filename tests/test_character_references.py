@@ -68,7 +68,17 @@ def test_upload_uses_turnaround_and_voice_and_reuses_drive(tmp_path):
         for key in ('filename','audio_filename','headshot_filename'):
             if asset.get(key):
                 (root / asset[key]).write_bytes(b'fixture')
-    template = load_template(Path('workflow_templates/AAIIref2AV_1.5x_template.json'))
+    file = tmp_path / 'two-pass.json'
+    nodes = {
+        '7': {'inputs': {'prompt': '[[PROMPT]]', 'image': '[[REF_IMG0]]', 'audio': '[[REF_AUD0]]'}},
+        '14': {'inputs': {'prompt': '[[PROMPT]]', 'image': '[[REF_IMG1]]', 'audio': '[[REF_AUD1]]', 'drive': '[[Drive_AUD]]'}},
+    }
+    for node in ('11', '50'):
+        nodes[node] = {'inputs': {'noise_seed': '[[SEED]]'}}
+    for node in ('21', '51'):
+        nodes[node] = {'inputs': {'filename_prefix': '[[OUTPUT_PREFIX]]'}}
+    file.write_text(json.dumps(nodes), encoding='utf-8')
+    template = load_template(file)
     segment = {'template':{'tokens':template.tokens,'image_order':['c1','c2']}}
     calls = []
     class Client:

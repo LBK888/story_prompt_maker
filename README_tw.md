@@ -2,6 +2,8 @@
 
 [English](README.md)
 
+**想租雲端 GPU？** 從[無本地模型快速安裝指南](docs/cloud-quickstart.zh-TW.md)開始，在 Windows 連接 OpenRouter 免費模型，一次安裝 GPUtw 雲端 ComfyUI，並試跑兩個影片範本。
+
 Vid Auto Prompt 是在 Windows 本機執行的網頁應用程式，可將短篇故事整理成可編輯的分鏡與 MiniMax H3 提示詞，再交由 ComfyUI 生成影片片段。你可以逐段審閱、綁定參考圖片、音訊或影片、比較多次生成結果，最後把選定的片段合併成完整影片。
 
 ## 安裝與啟動
@@ -29,7 +31,7 @@ Vid Auto Prompt 是在 Windows 本機執行的網頁應用程式，可將短篇�
 | --- | --- |
 | 本機 llama.cpp | 把 GGUF 放在專案根目錄或 `models/`。按 **重新掃描** 後選擇模型。若要使用相容的視覺模型分析圖片，再選擇搭配的 **視覺投影模型**（mmproj）。 |
 | Ollama | 啟動 Ollama 並下載模型。本機服務可填 `http://127.0.0.1:11434`，再從 API 清單選擇模型。 |
-| OpenAI 或 OpenRouter | 使用預填的 API URL，輸入 API Key，按 **載入 API 模型清單** 後選擇模型。 |
+| OpenAI 或 OpenRouter | 使用預填的 API URL 並輸入 API Key。OpenRouter 預設為 **自動選擇免費模型**（`openrouter/free`），也可載入清單選擇特定模型。 |
 | 自訂 OpenAI 相容 API | 輸入服務的 API 基底網址（通常以 `/v1` 結尾），有驗證需求時填入 API Key。載入清單或直接輸入完整模型 ID。 |
 
 使用 API 時，也可以在 **搜尋或輸入模型 ID** 輸入完整 ID，再按 Enter 選定。使用本機 llama.cpp 時可視需求調整 **Context size**，最後按 **儲存模型設定**。API Key 留白會沿用已儲存的金鑰，金鑰會存在本機的 `.env`。
@@ -43,7 +45,7 @@ Vid Auto Prompt 是在 Windows 本機執行的網頁應用程式，可將短篇�
 
 ### 用關鍵字編輯器製作工作流程範本
 
-可先試用 `t2va_template.json` 等隨附範本，並在 ComfyUI 裝好對應的依賴。也可以用編輯器製作自己的範本。
+純文字使用 `10eros_singularity_t2va_template.json`，圖片加音訊參考使用 `10eros_singularity_ref2va_template.json`。請在 ComfyUI 裝好對應的依賴，也可以用編輯器製作自己的範本。
 
 1. 在 ComfyUI 開啟測試過的工作流程，選 **File → Export (API)**。API 格式的 JSON 以節點 ID 為鍵，每個節點包含 `class_type` 和 `inputs`。[ComfyUI API 匯出範例](https://github.com/Comfy-Org/ComfyUI/blob/master/script_examples/basic_api_example.py)
 2. 從本機專案資料夾用瀏覽器開啟 [ComfyUI Workflow 關鍵字編輯器](ComfyUI%20Workflow%20關鍵字編輯器.html)。按 **開啟 JSON** 選擇剛匯出的檔案，可切換 **程式碼** 與 **樹狀** 檢視。工具列也提供 JSON 格式化、復原、重做、搜尋與取代。
@@ -90,7 +92,7 @@ Vid Auto Prompt 是在 Windows 本機執行的網頁應用程式，可將短篇�
 
 ## 用內建工具生成分鏡圖片
 
-**生成起始幀**、**生成結束幀**、**生成場景圖** 使用隨附的 Qwen Image 工作流程。請先在 ComfyUI 裝好相應模型與節點，也要設定撰寫用的 LLM，介面會用它替生成的圖片取簡短檔名。
+選用的 **生成起始幀**、**生成結束幀**、**生成場景圖** 功能需要四個 `qimg_2_1_*.json` 檔。要使用時，從舊版下載並放入 `workflow_templates/`，再於 ComfyUI 安裝對應模型與節點。介面會用寫作 LLM 替圖片取檔名。[舊版 Qwen 工作流程下載](https://github.com/LBK888/story_prompt_maker/tree/801706273a5ce82a3a28b5c6380c44759ccc2547/workflow_templates)
 
 1. 先填片段摘要，並在 **鏡頭 JSON** 填入至少一個鏡頭，以啟用生圖按鈕。
 2. 開啟要用的生圖工具。參考素材留空可用文字生圖，也可以選最多三個圖片、角色或影片素材來編輯圖片。影片素材在此工具中會擷取一張畫面。

@@ -138,6 +138,8 @@ class SegmentImageService:
         else:
             title = await self._filename_title(segment, kind, prompt.strip(), assets)
         name = f"qimg_2_1_edit_{len(assets)}ref2i_template.json" if assets else "qimg_2_1_t2i_template.json"
+        if not (TEMPLATES_DIR / name).is_file():
+            raise ValueError(f"靜態圖需要選用範本 {name}，請依 README 的靜態圖說明放入 workflow_templates/。")
         template = load_template(TEMPLATES_DIR / name)
         client = ComfyClient(self.config.comfy_url)
         await client.health()

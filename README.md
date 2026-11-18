@@ -2,6 +2,8 @@
 
 [台灣繁體中文](README_tw.md)
 
+**Using a cloud GPU?** Follow the [Windows quickstart for OpenRouter Free and GPUtw ComfyUI](docs/cloud-quickstart.md). It includes the cloud installer and a first render with each video workflow.
+
 Vid Auto Prompt is a local Windows web app for turning a short story into an editable storyboard, MiniMax H3 prompts, and video clips rendered by ComfyUI. You can review every segment, attach reference images, audio or video, compare takes, and assemble the selected takes into a final video.
 
 ## Install and start
@@ -29,7 +31,7 @@ On the home page, open **模型設定** (Model Settings) and select **連線方�
 | --- | --- |
 | Local llama.cpp | Place a GGUF in the repository root or `models/`. Click **重新掃描**, pick the model, and select its matching **視覺投影模型** (mmproj) if you want image analysis with a compatible vision model. |
 | Ollama | Start Ollama, pull a model, and use `http://127.0.0.1:11434` for a local instance. Select the model from the API list. |
-| OpenAI or OpenRouter | Use the provider's prefilled API URL and enter its API key. Click **載入 API 模型清單** and select a model. |
+| OpenAI or OpenRouter | Enter your key at the prefilled URL. OpenRouter defaults to **自動選擇免費模型** (`openrouter/free`). Load the model list to pick a specific model. |
 | Custom OpenAI-compatible API | Enter the service's API base URL, typically ending in `/v1`, and its key if required. Load the model list or enter the exact model ID. |
 
 In an API profile, you can type a full ID in **搜尋或輸入模型 ID** and press Enter to select it. Adjust **Context size** for local llama.cpp if needed, then click **儲存模型設定**. Leave the key field blank to reuse the saved key. The app stores keys in the local `.env` file.
@@ -43,7 +45,7 @@ In an API profile, you can type a full ID in **搜尋或輸入模型 ID** and pr
 
 ### Prepare a workflow with the keyword editor
 
-Use a bundled template such as `t2va_template.json` with a compatible ComfyUI setup, or prepare your own with the editor.
+Use `10eros_singularity_t2va_template.json` for text or `10eros_singularity_ref2va_template.json` for image and audio references. You can also prepare your own template with the editor.
 
 1. In ComfyUI, open a working workflow and use **File → Export (API)**. The API-format JSON contains node IDs with `class_type` and `inputs`. [ComfyUI API export example](https://github.com/Comfy-Org/ComfyUI/blob/master/script_examples/basic_api_example.py)
 2. Open [ComfyUI Workflow 關鍵字編輯器](ComfyUI%20Workflow%20關鍵字編輯器.html) from your local clone in a browser. Click **開啟 JSON** and load the exported file. Use **程式碼** or **樹狀** view to inspect the workflow. The toolbar also supports formatting, undo, redo, and search and replace.
@@ -90,7 +92,7 @@ To add your own local characters, use `character_template/<category>_<name>/` wi
 
 ## Generate still images from a segment
 
-The **生成起始幀**, **生成結束幀** and **生成場景圖** tools use the bundled Qwen Image workflows. Install their models and nodes in ComfyUI, then configure the writing LLM, which also supplies a short filename for images made in the UI.
+The optional still-image tools use the four `qimg_2_1_*.json` files. Download them into `workflow_templates/` if you use **生成起始幀**, **生成結束幀** or **生成場景圖**. Install their matching models and nodes in ComfyUI and configure the writing LLM for filenames. [Qwen workflow downloads in the previous release](https://github.com/LBK888/story_prompt_maker/tree/801706273a5ce82a3a28b5c6380c44759ccc2547/workflow_templates)
 
 1. Fill the segment summary and provide at least one shot in **鏡頭 JSON** to enable the tools.
 2. Open the desired image tool. Leave the references empty for text-to-image, or select up to three images, characters or videos for image editing. For this tool, a video reference contributes a still frame.

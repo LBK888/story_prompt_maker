@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param()
+param([switch]$FfmpegOnly)
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
@@ -62,7 +62,10 @@ try {
     $llamaReady = (Test-Path (Join-Path $llamaTarget "llama-server.exe")) -and
         (Test-Path $llamaMarker) -and
         ((Get-Content -LiteralPath $llamaMarker -Raw).Trim() -eq $llamaVersion)
-    if ($llamaReady) {
+    if ($FfmpegOnly) {
+        Write-Host "Installing media tools for remote inference."
+    }
+    elseif ($llamaReady) {
         Write-Host "llama.cpp $llamaVersion is already installed."
     }
     else {

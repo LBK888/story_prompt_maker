@@ -27,7 +27,7 @@ def default_llm_profiles() -> dict[str, dict[str, str]]:
         "local": {"base_url": "", "model": "Muse-Glimmer-30B-CRACK-Q4_K_M.gguf"},
         "ollama": {"base_url": "http://127.0.0.1:11434", "model": ""},
         "openai": {"base_url": "https://api.openai.com/v1", "model": ""},
-        "openrouter": {"base_url": "https://openrouter.ai/api/v1", "model": ""},
+        "openrouter": {"base_url": "https://openrouter.ai/api/v1", "model": "openrouter/free"},
         "custom": {"base_url": "", "model": ""},
     }
 
@@ -101,6 +101,8 @@ def _coerce_config(raw: dict[str, Any]) -> AppConfig:
             profiles[provider].update({
                 key: str(value) for key, value in profile.items() if key in {"base_url", "model"}
             })
+    if not profiles["openrouter"]["model"].strip():
+        profiles["openrouter"]["model"] = "openrouter/free"
     profiles["local"]["model"] = str(values.get("model_path") or profiles["local"]["model"])
     values["llm_profiles"] = profiles
     if values.get("llm_provider") not in LLM_PROVIDERS:
