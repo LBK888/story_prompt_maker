@@ -1,4 +1,4 @@
-# Vid Auto Prompt v2.0.0
+# Vid Auto Prompt v2.0.1
 
 [台灣繁體中文](README_tw.md)
 
@@ -8,7 +8,11 @@ Vid Auto Prompt is a local Windows web app for turning a short story into an edi
 
 ## Install and start
 
-1. On Windows 11, install Python 3.11–3.14 with the `py` launcher and an NVIDIA driver that provides `nvidia-smi`. The included installer checks for an NVIDIA GPU.
+Download a Windows EXE from [Releases](https://github.com/LBK888/story_prompt_maker/releases/latest). Choose **remote** for API models or **gpu** for NVIDIA llama.cpp. Put the EXE in a writable folder. First launch downloads the template library (about 1.9 GB) and media tools, and creates settings beside the EXE. Interrupted template downloads resume by file. In a project, select **查看模型回應紀錄** beside the storyboard button to read model output and validation errors for each attempt.
+
+For a source installation:
+
+1. Install Python 3.11–3.14 using the Windows launcher or add Python to PATH. The installer enables local llama.cpp when NVIDIA is detected.
 2. Clone the repository and run the installer from its root.
 
    ```powershell
@@ -18,10 +22,10 @@ Vid Auto Prompt is a local Windows web app for turning a short story into an edi
    .\start.bat
    ```
 
-3. Open [the local web app](http://127.0.0.1:7865). The app listens on the loopback address by default. The installer creates `.venv/` and downloads SHA-256-verified Windows builds of llama.cpp and FFmpeg into `runtime/`.
+3. Open [the local web app](http://127.0.0.1:7865). The app listens on the loopback address by default. The installer creates `.venv/` and downloads SHA-256-verified Windows builds of FFmpeg and, on NVIDIA systems, llama.cpp into `runtime/`.
 4. Select an LLM if you plan to use AI-assisted writing. Start and configure ComfyUI before generating media. You can create a blank storyboard, enter your own prompts and work on the project before either service is ready.
 
-Provide your own GGUF weights for local inference. The clone includes 121 built-in male characters with their media, totaling about 1.58 GiB.
+Provide your own GGUF weights for local inference. The clone includes the built-in character library and its media.
 
 ## Configure the writing model
 

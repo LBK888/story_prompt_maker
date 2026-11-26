@@ -34,6 +34,7 @@ from .config import (
     LLM_API_KEY_ENV,
     LLM_PROVIDERS,
     ROOT,
+    RESOURCE_ROOT,
     AppConfig,
     llm_api_key,
     load_config,
@@ -103,8 +104,27 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Vid Auto Prompt", version=__version__, lifespan=lifespan)
-app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
-templates = Jinja2Templates(directory=ROOT / "templates")
+app.mount("/static", StaticFiles(directory=RESOURCE_ROOT / "static"), name="static")
+templates = Jinja2Templates(directory=RESOURCE_ROOT / "templates")
+
+
+@app.get("/projects/{project_id}/blueprint-logs")
+def blueprint_logs(request: Request, project_id: str):
+    store.load(project_id)
+    folder = store.project_dir(project_id) / "logs"
+    files = sorted(folder.glob("blueprint_*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+    return templates.TemplateResponse(request, "blueprint_logs.html", {"files": files, "project_id": project_id})
+
+
+@app.get("/projects/{project_id}/blueprint-logs/{name}")
+def blueprint_log(project_id: str, name: str):
+    if not re.fullmatch(r"blueprint_(?:raw|response)_[0-9a-f]+\.json", name):
+        raise HTTPException(404)
+    folder = store.project_dir(project_id) / "logs"
+    path = folder / name
+    if not path.is_file() or path.resolve().parent != folder.resolve():
+        raise HTTPException(404)
+    return FileResponse(path, media_type="text/plain; charset=utf-8", headers={"Cache-Control": "no-store"})
 
 
 @app.exception_handler(ProjectNotFoundError)

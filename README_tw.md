@@ -1,4 +1,4 @@
-# Vid Auto Prompt v2.0.0
+# Vid Auto Prompt v2.0.1
 
 [English](README.md)
 
@@ -8,7 +8,11 @@ Vid Auto Prompt 是在 Windows 本機執行的網頁應用程式，可將短篇�
 
 ## 安裝與啟動
 
-1. 在 Windows 11 安裝 Python 3.11–3.14，並保留 `py` 啟動器。請安裝提供 `nvidia-smi` 的 NVIDIA 驅動程式，安裝腳本會檢查 NVIDIA GPU。
+從 [Releases](https://github.com/LBK888/story_prompt_maker/releases/latest) 下載 Windows EXE。使用 API 模型請選 **remote**，使用 NVIDIA 顯示卡跑本機 llama.cpp 請選 **gpu**。將 EXE 放在可寫入的資料夾，首次啟動會下載約 1.9 GB 的範本庫和執行工具，並在 EXE 旁建立設定。下載中斷後可重新執行，已完成的檔案會保留。在專案的「產生／重建影片藍圖」旁按「查看模型回應紀錄」，可查看各次回應和驗證錯誤。
+
+從原始碼安裝：
+
+1. 安裝 Python 3.11–3.14，可使用 Windows 的 py 啟動器，或將 python 加入 PATH。安裝程式偵測到 NVIDIA 顯示卡時會啟用本機 llama.cpp。
 2. 複製倉庫後，在專案根目錄執行安裝及啟動腳本。
 
    ```powershell
@@ -18,10 +22,10 @@ Vid Auto Prompt 是在 Windows 本機執行的網頁應用程式，可將短篇�
    .\start.bat
    ```
 
-3. 開啟[本機網頁介面](http://127.0.0.1:7865)。應用程式預設只接受來自本機的連線。安裝程式會建立 `.venv/`，並將通過 SHA-256 驗證的 Windows 版 llama.cpp 與 FFmpeg 下載到 `runtime/`。
+3. 開啟[本機網頁介面](http://127.0.0.1:7865)。應用程式預設只接受來自本機的連線。安裝程式會建立 `.venv/`，並將通過 SHA-256 驗證的 Windows 版 FFmpeg（有 NVIDIA 時另含 llama.cpp）下載到 `runtime/`。
 4. 如需 AI 輔助撰寫，請先選擇 LLM。生成影音前請啟動並設定 ComfyUI。兩項服務都還沒設定好時，仍可建立空白分鏡、手動填寫提示詞及編輯專案。
 
-本機推論需要自行準備 GGUF 權重。倉庫包含 121 位內建男性角色及其素材，合計約 1.58 GiB。
+本機推論需要自行準備 GGUF 權重。倉庫包含 內建角色庫及其影音素材。
 
 ## 設定撰寫用的 LLM
 

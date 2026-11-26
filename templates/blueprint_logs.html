@@ -1,0 +1,4 @@
+<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><title>分鏡模型回應紀錄</title>
+<h1>分鏡模型回應紀錄</h1><p>依時間由新到舊排列。紀錄可能包含劇情及模型產生的文字，分享前請先確認內容。</p>
+{% for file in files %}<p><a href="/projects/{{ project_id }}/blueprint-logs/{{ file.name }}">{{ file.name }}</a></p>
+{% else %}<p>目前沒有紀錄。產生分鏡後請重新整理。</p>{% endfor %}</html>

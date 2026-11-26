@@ -7,7 +7,7 @@ import os
 from app.config import load_config
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description="Run the persistent Vid Auto Prompt backend")
     parser.add_argument("--mode", choices=("interactive", "agent"))
     parser.add_argument("--port", type=int)
@@ -17,3 +17,6 @@ if __name__ == "__main__":
     config = load_config()
     uvicorn.run("app.main:app", host=config.host, port=args.port or config.port, reload=False)
 
+
+if __name__ == "__main__":
+    main()

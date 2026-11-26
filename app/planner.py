@@ -5,6 +5,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from .domain import utc_now
 from .chinese import to_simplified
 from .llama_service import LlamaServerManager
 from .media import attach_images, ensure_analysis_copy
@@ -146,23 +147,34 @@ class StoryPlanner:
                     blueprint_messages(project, repair_errors or None, raw),
                     self._asset_images(project_id, project),
                 )
-                raw = await self.llama.json_completion(messages, schema, mode=mode)
-                log_path = self.store.project_dir(project_id) / "logs" / f"blueprint_raw_{uuid.uuid4().hex[:10]}.json"
-                log_path.write_text(json.dumps(raw, ensure_ascii=False, indent=2), encoding="utf-8")
-                self.llama.update_progress(22 + attempt * 30, "驗證並正規化分鏡")
-                candidate = normalize_blueprint(raw, str(project["settings"].get("speech_speed", "normal")))
-                repair_errors = validate_blueprint_content(
-                    candidate,
-                    require_dialogue=bool(project["settings"].get("create_dialogue")),
-                    require_narration=bool(project["settings"].get("create_narration")),
-                )
+                diagnostic = {
+                    "time": utc_now(), "attempt": attempt + 1,
+                    "requested_provider": self.llama.config.llm_provider,
+                    "requested_model": self.llama.config.llm_model,
+                }
+                log_path = self.store.project_dir(project_id) / "logs" / f"blueprint_response_{uuid.uuid4().hex}.json"
+                try:
+                    raw = await self.llama.json_completion(messages, schema, mode=mode, diagnostic=diagnostic)
+                    self.llama.update_progress(22 + attempt * 30, "驗證並正規化分鏡")
+                    candidate = normalize_blueprint(raw, str(project["settings"].get("speech_speed", "normal")))
+                    repair_errors = validate_blueprint_content(
+                        candidate,
+                        require_dialogue=bool(project["settings"].get("create_dialogue")),
+                        require_narration=bool(project["settings"].get("create_narration")),
+                    )
+                    diagnostic["validation_errors"] = repair_errors
+                except Exception as exc:
+                    diagnostic["error"] = str(exc)
+                    raise
+                finally:
+                    log_path.write_text(json.dumps(diagnostic, ensure_ascii=False, indent=2), encoding="utf-8")
                 if not repair_errors:
                     blueprint = candidate
                     break
             if blueprint is None:
                 preview = "; ".join(repair_errors[:8])
                 raise PlanningError(
-                    "Muse-Glimmer returned an empty or invalid storyboard after 3 attempts. "
+                    "The model returned an empty or invalid storyboard after 3 attempts. "
                     f"The previous storyboard was preserved. Errors: {preview}"
                 )
             self.llama.update_progress(92, "儲存有效藍圖")

@@ -1,4 +1,6 @@
 """Local preset catalog. Selected media are copied into the project."""
+from __future__ import annotations
+
 from pathlib import Path
 import hashlib
 import shutil
