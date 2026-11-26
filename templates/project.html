@@ -74,7 +74,7 @@
       <button id="choose-characters" class="ghost" type="button">選取內建角色</button>
       <p class="hint">瀏覽大頭照、試聽語音，一次加入人物圖片與聲音。</p>
       <div id="asset-list" class="asset-list"></div>
-      <div class="asset-blueprint-action"><div class="button-row"><button class="accent" type="button" id="blueprint-button">產生／重建t2v影片藍圖</button><button class="primary" type="button" id="blank-blueprint-button" {% if project.segments %}disabled{% endif %}>產生空白分鏡</button></div><p class="hint">上傳參考影音圖檔後，藍圖會依照使用者指定的角色與備註規劃；空白分鏡不會使用 LLM。</p></div>
+      <div class="asset-blueprint-action"><div class="button-row"><button class="accent" type="button" id="blueprint-button">產生／重建t2v影片藍圖</button><a href="/projects/{{ project.id }}/blueprint-logs" target="_blank" rel="noopener">查看模型回應紀錄</a><button class="primary" type="button" id="blank-blueprint-button" {% if project.segments %}disabled{% endif %}>產生空白分鏡</button></div><p class="hint">上傳參考影音圖檔後，藍圖會依照使用者指定的角色與備註規劃；空白分鏡不會使用 LLM。</p></div>
     </section>
   </section>
 

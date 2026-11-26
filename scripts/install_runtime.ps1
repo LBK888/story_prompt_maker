@@ -1,11 +1,11 @@
 [CmdletBinding()]
-param([switch]$FfmpegOnly)
+param([switch]$FfmpegOnly, [string]$ProjectRoot)
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$projectRoot = Split-Path -Parent $PSScriptRoot
+if (-not $ProjectRoot) { $ProjectRoot = Split-Path -Parent $PSScriptRoot }
 $runtimeRoot = Join-Path $projectRoot "runtime"
 $llamaTarget = Join-Path $runtimeRoot "llama.cpp"
 $ffmpegTarget = Join-Path $runtimeRoot "ffmpeg"

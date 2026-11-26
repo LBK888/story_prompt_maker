@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import signal
 import subprocess
 import time
@@ -338,6 +339,7 @@ class LlamaServerManager:
         messages: list[dict[str, Any]],
         mode: str = "balanced",
         json_schema: dict[str, Any] | None = None,
+        diagnostic: dict | None = None,
     ) -> str:
         self._require_inference()
         provider = self.config.llm_provider
@@ -371,10 +373,12 @@ class LlamaServerManager:
         else:
             url = f"{self.config.llm_base_url}/chat/completions"
         if payload["stream"]:
-            return await self._stream_completion(url, payload, provider, timeout)
+            return await self._stream_completion(url, payload, provider, timeout, diagnostic)
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
                 response = await client.post(url, json=payload, headers=self._request_headers())
+                if diagnostic is not None:
+                    diagnostic["response"] = response.text
                 response.raise_for_status()
                 data = response.json()
         except (httpx.HTTPError, ValueError) as exc:
@@ -394,9 +398,10 @@ class LlamaServerManager:
         return content.strip()
 
     async def _stream_completion(
-        self, url: str, payload: dict[str, Any], provider: str, timeout: httpx.Timeout
+        self, url: str, payload: dict[str, Any], provider: str, timeout: httpx.Timeout, diagnostic: dict | None = None
     ) -> str:
         pieces: list[str] = []
+        reasoning_pieces: list[str] = []
         token_times: deque[float] = deque()
         first_token_at: float | None = None
         observed_tokens = 0
@@ -405,6 +410,9 @@ class LlamaServerManager:
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
                 async with client.stream("POST", url, json=payload, headers=self._request_headers()) as response:
+                    if diagnostic is not None and response.is_error:
+                        await response.aread()
+                        diagnostic["response"] = response.text
                     response.raise_for_status()
                     async for line in response.aiter_lines():
                         if not line or line.startswith(":"):
@@ -415,9 +423,18 @@ class LlamaServerManager:
                             raw = line[5:].strip()
                             if raw == "[DONE]":
                                 break
+                        elif line.lstrip().startswith("{"):
+                            raw = line
                         else:
+                            if diagnostic is not None:
+                                diagnostic["unrecognized_line"] = line
                             continue
-                        event = json.loads(raw)
+                        try:
+                            event = json.loads(raw)
+                        except ValueError:
+                            if diagnostic is not None:
+                                diagnostic["invalid_event"] = raw
+                            raise
                         if event.get("error"):
                             raise LlamaServerError(str(event["error"]))
                         usage = event.get("usage") or {}
@@ -433,13 +450,24 @@ class LlamaServerManager:
                                 reported_duration = duration if duration > 0 else None
                         else:
                             choices = event.get("choices") or []
-                            delta = choices[0].get("delta") or {} if choices else {}
+                            choice = choices[0] if choices else {}
+                            delta = choice.get("delta") or choice.get("message") or {}
+                            if diagnostic is not None:
+                                for key in ("model", "provider", "id"):
+                                    if event.get(key):
+                                        diagnostic[key] = event[key]
+                                if choice.get("finish_reason"):
+                                    diagnostic["finish_reason"] = choice["finish_reason"]
+                                if delta.get("refusal"):
+                                    diagnostic["refusal"] = delta["refusal"]
                             content = delta.get("content") or ""
-                            reasoning = delta.get("reasoning_content") or ""
+                            reasoning = delta.get("reasoning_content") or delta.get("reasoning") or ""
                         if isinstance(content, list):
                             content = "".join(str(item.get("text", "")) for item in content if isinstance(item, dict))
                         if content:
                             pieces.append(str(content))
+                        if reasoning and diagnostic is not None:
+                            reasoning_pieces.append(str(reasoning))
                         if content or reasoning:
                             now = time.monotonic()
                             self._inference["last_token_at"] = now
@@ -452,6 +480,11 @@ class LlamaServerManager:
                             self._inference["current_tokens_per_second"] = round(len(token_times) / window, 1)
         except (httpx.HTTPError, ValueError, TypeError, KeyError) as exc:
             raise LlamaServerError(f"LLM request failed ({provider}): {exc}") from exc
+        finally:
+            if diagnostic is not None:
+                diagnostic["content"] = "".join(pieces)
+                if reasoning_pieces:
+                    diagnostic["reasoning"] = "".join(reasoning_pieces)
         duration = reported_duration or (time.monotonic() - first_token_at if first_token_at else 0)
         count = reported_tokens if reported_tokens is not None else observed_tokens
         if reported_tokens is None:
@@ -472,9 +505,17 @@ class LlamaServerManager:
         messages: list[dict[str, Any]],
         schema: dict[str, Any],
         mode: str = "balanced",
+        diagnostic: dict | None = None,
     ) -> dict[str, Any]:
-        content = await self.completion(messages, mode=mode, json_schema=schema)
+        options = {"diagnostic": diagnostic} if diagnostic is not None else {}
+        content = await self.completion(messages, mode=mode, json_schema=schema, **options)
+        if diagnostic is not None:
+            diagnostic["content"] = content
+        fenced = re.fullmatch(r"```(?:json)?\s*(.*?)\s*```", content, re.I | re.S)
         try:
-            return json.loads(content)
+            value = json.loads(fenced.group(1) if fenced else content)
+            if not isinstance(value, dict):
+                raise LlamaServerError("Expected a JSON object from the model")
+            return value
         except json.JSONDecodeError as exc:
             raise LlamaServerError(f"LLM returned invalid JSON: {exc}") from exc

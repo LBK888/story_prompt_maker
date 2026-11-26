@@ -3,12 +3,14 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
 
-ROOT = Path(__file__).resolve().parent.parent
+RESOURCE_ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else RESOURCE_ROOT
 CONFIG_DIR = ROOT / "config"
 CONFIG_FILE = CONFIG_DIR / "app.json"
 ENV_FILE = ROOT / ".env"
@@ -114,6 +116,9 @@ def load_config() -> AppConfig:
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     if not CONFIG_FILE.exists():
         config = AppConfig()
+        if os.environ.get("VAP_INITIAL_PROVIDER") == "openrouter":
+            config.llm_provider = "openrouter"
+            config.comfy_shared_gpu = False
         save_config(config)
     else:
         try:
